@@ -13,5 +13,9 @@ router.post('/login', [
     (0, express_validator_1.check)('password', 'Password is required').not().isEmpty(),
     validate_fields_1.default
 ], auth_1.login);
+router.post('/google', [
+    (0, express_validator_1.check)('id_token', 'id_token is requerired').not().isEmpty(),
+    validate_fields_1.default
+], auth_1.googleSignIn);
 exports.default = router;
 //# sourceMappingURL=auth.js.map
