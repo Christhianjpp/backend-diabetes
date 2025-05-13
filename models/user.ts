@@ -43,6 +43,22 @@ const UserSchema = new Schema<IUser>(
             type: Boolean,
             default: false,
         },
+        pushTokens: [
+            {
+                token: {
+                    type: String,
+                    required: true
+                },
+                device: {
+                    type: String,
+                    default: 'unknown'
+                },
+                createdAt: {
+                    type: Date,
+                    default: Date.now
+                }
+            }
+        ],
         postSaved: [
             {
                 type: Schema.Types.ObjectId,

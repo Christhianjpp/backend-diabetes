@@ -52,6 +52,22 @@ const UserSchema = new mongoose_1.Schema({
         type: Boolean,
         default: false,
     },
+    pushTokens: [
+        {
+            token: {
+                type: String,
+                required: true
+            },
+            device: {
+                type: String,
+                default: 'unknown'
+            },
+            createdAt: {
+                type: Date,
+                default: Date.now
+            }
+        }
+    ],
     postSaved: [
         {
             type: mongoose_1.Schema.Types.ObjectId,

@@ -27,20 +27,20 @@ exports.deleteUser = exports.updateUser = exports.createUser = exports.getUser =
 const user_1 = __importDefault(require("../models/user"));
 const bcrypt_handle_1 = require("../helpers/bcrypt-handle");
 const error_handle_1 = __importDefault(require("../helpers/error-handle"));
+const generate_jwt_1 = __importDefault(require("../helpers/generate-jwt"));
+const userCreateName_1 = require("../helpers/userCreateName");
 const getUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { desde = 0, limit = 5 } = req.params;
         const query = { state: true };
         const [total, users] = yield Promise.all([
             user_1.default.countDocuments(query),
-            user_1.default.find(query)
-                .skip(Number(desde))
-                .limit(Number(limit))
+            user_1.default.find(query).skip(Number(desde)).limit(Number(limit)),
         ]);
         res.status(200).json({ total, users });
     }
     catch (error) {
-        (0, error_handle_1.default)(res, 'ERROR_GET_USERS', error);
+        (0, error_handle_1.default)(res, "ERROR_GET_USERS", error);
     }
 });
 exports.getUsers = getUsers;
@@ -54,28 +54,29 @@ const getUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         res.status(200).json({ user });
     }
     catch (error) {
-        (0, error_handle_1.default)(res, 'ERROR_GET_USER', error);
+        (0, error_handle_1.default)(res, "ERROR_GET_USER", error);
     }
 });
 exports.getUser = getUser;
 const createUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    console.log("createUser");
     try {
-        const { name, email, password, userName } = req.body;
+        const { name, email, password } = req.body;
+        console.log(name, email, password);
         const user = new user_1.default({
+            userName: (0, userCreateName_1.userName)(name),
             name: name.toLowerCase(),
             email: email.toLowerCase(),
             password,
-            userName,
         });
         user.password = (0, bcrypt_handle_1.encrypt)(password);
         yield user.save();
-        console.log(user);
-        res.json({
-            msg: 'Post API- controlador',
-            user
-        });
+        const token = yield (0, generate_jwt_1.default)(user.id);
+        res.status(201).json({ user, token });
     }
     catch (error) {
+        (0, error_handle_1.default)(res, "ERROR_PUT_USER", error);
+        console.log(error);
     }
 });
 exports.createUser = createUser;
@@ -83,11 +84,14 @@ const updateUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
     try {
         const id = req.params.id;
         const _a = req.body, { password, google, email } = _a, resto = __rest(_a, ["password", "google", "email"]);
+        console.log({ resto });
+        console.log(id);
         const user = yield user_1.default.findByIdAndUpdate(id, resto, { new: true });
+        console.log({ user });
         res.status(200).json({ user });
     }
     catch (error) {
-        (0, error_handle_1.default)(res, 'ERROR_PUT_USER', error);
+        (0, error_handle_1.default)(res, "ERROR_PUT_USER", error);
     }
 });
 exports.updateUser = updateUser;
@@ -95,10 +99,10 @@ const deleteUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
     try {
         const { id } = req.params;
         yield user_1.default.findByIdAndUpdate(id, { state: false }, { new: true });
-        res.status(200).json({ msg: 'Deleted user' });
+        res.status(200).json({ msg: "Deleted user" });
     }
     catch (error) {
-        (0, error_handle_1.default)(res, 'ERROR_DELETE_USER', error);
+        (0, error_handle_1.default)(res, "ERROR_DELETE_USER", error);
     }
 });
 exports.deleteUser = deleteUser;

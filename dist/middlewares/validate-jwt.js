@@ -14,38 +14,78 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const user_1 = __importDefault(require("../models/user"));
-// interface RequesEXT extends Request {
-//     user?: string | JwtPayload;
-// }
+/**
+ * Middleware para validar JWT y adjuntar el usuario a la solicitud
+ */
 const validateJWT = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    const token = req.header('x-token');
-    console.log(token);
-    if (!token) {
-        return res.status(401).json({
-            msg: 'There is no token in the request'
-        });
-    }
     try {
-        // const { uid } = jwt.verify(token, SECRET_KEY)
-        const { uid } = jsonwebtoken_1.default.verify(token, `${process.env.SECRETORPRIVATEKEY}`);
+        // Obtener el header de autorización
+        const authHeader = req.header("Authorization");
+        // Verificar si existe el header de autorización
+        if (!authHeader) {
+            return res.status(401).json({
+                ok: false,
+                msg: "No hay token en la petición"
+            });
+        }
+        // Extraer el token del formato "Bearer <token>"
+        const token = authHeader.replace(/^Bearer\s+/, "");
+        if (!token) {
+            return res.status(401).json({
+                ok: false,
+                msg: "Formato de token inválido"
+            });
+        }
+        // Verificar el token y extraer la información del usuario
+        const secretKey = process.env.SECRETORPRIVATEKEY;
+        if (!secretKey) {
+            console.error("Error crítico: SECRETORPRIVATEKEY no está definido en las variables de entorno");
+            return res.status(500).json({
+                ok: false,
+                msg: "Error de configuración del servidor"
+            });
+        }
+        // Decodificar el token
+        const { uid } = jsonwebtoken_1.default.verify(token, secretKey);
+        // Buscar el usuario en la base de datos
         const user = yield user_1.default.findById(uid);
+        // Verificar si el usuario existe
         if (!user) {
             return res.status(401).json({
-                msg: 'There is no token in the request'
+                ok: false,
+                msg: "Token no válido - usuario no existe"
             });
         }
+        // Verificar si el usuario está activo
         if (!user.state) {
             return res.status(401).json({
-                msg: 'There is no token in the request!'
+                ok: false,
+                msg: "Token no válido - usuario inactivo"
             });
         }
+        // Adjuntar el usuario a la solicitud para usarlo en los controladores
         req.user = user;
+        // Continuar con el siguiente middleware o controlador
         next();
     }
     catch (error) {
-        console.log(error);
+        console.log("Error en validación de token:", error);
+        // Personalizar mensaje según el tipo de error
+        if (error instanceof jsonwebtoken_1.default.JsonWebTokenError) {
+            return res.status(401).json({
+                ok: false,
+                msg: "Token inválido"
+            });
+        }
+        else if (error instanceof jsonwebtoken_1.default.TokenExpiredError) {
+            return res.status(401).json({
+                ok: false,
+                msg: "Token expirado"
+            });
+        }
         return res.status(401).json({
-            msg: 'Token Expired Error'
+            ok: false,
+            msg: "Error de autenticación"
         });
     }
 });

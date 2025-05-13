@@ -15,23 +15,24 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.userNameExists = exports.coleccionesPermitidas = exports.userExists = exports.emailExists = void 0;
 const user_1 = __importDefault(require("../models/user"));
 // Check User
-const userNameExists = (...args_1) => __awaiter(void 0, [...args_1], void 0, function* (userName = '') {
-    const regex = new RegExp(userName, 'i');
+const userNameExists = (...args_1) => __awaiter(void 0, [...args_1], void 0, function* (userName = "") {
+    const regex = new RegExp(userName, "i");
     const userNameExists = yield user_1.default.findOne({ userName: regex });
     if (userNameExists) {
         throw new Error(`El usuario: ${userName} ya existe`);
     }
 });
 exports.userNameExists = userNameExists;
-const emailExists = (...args_1) => __awaiter(void 0, [...args_1], void 0, function* (email = '') {
-    const regex = new RegExp(email, 'i');
+const emailExists = (...args_1) => __awaiter(void 0, [...args_1], void 0, function* (email = "") {
+    console.log(email);
+    const regex = new RegExp(email, "i");
     const existsEmail = yield user_1.default.findOne({ email: regex });
     if (existsEmail) {
         throw new Error(`El correo: ${email} ya existe`);
     }
 });
 exports.emailExists = emailExists;
-const userExists = (...args_1) => __awaiter(void 0, [...args_1], void 0, function* (id = '') {
+const userExists = (...args_1) => __awaiter(void 0, [...args_1], void 0, function* (id = "") {
     const existsUser = yield user_1.default.findById(id);
     if (!existsUser) {
         throw new Error(`the User: ${id} does no exist`);
@@ -39,7 +40,7 @@ const userExists = (...args_1) => __awaiter(void 0, [...args_1], void 0, functio
 });
 exports.userExists = userExists;
 // Validar colecciones permitidas
-const coleccionesPermitidas = (coleccion = '', colecciones = ['']) => {
+const coleccionesPermitidas = (coleccion = "", colecciones = [""]) => {
     const incluida = colecciones.includes(coleccion);
     if (!incluida) {
         throw new Error(`La colección ${coleccion} no es permitida - ${colecciones}`);

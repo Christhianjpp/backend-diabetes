@@ -24,7 +24,7 @@ function googleVerify(id_token) {
         return {
             name,
             img: picture,
-            email
+            email,
         };
     });
 }

@@ -20,7 +20,6 @@ dotenv_1.default.config();
 const cloudinary_1 = require("cloudinary");
 cloudinary_1.v2.config(`${process.env.CLOUDINARY_URL}`);
 const subir_archivo_1 = __importDefault(require("../helpers/subir-archivo"));
-const route_1 = __importDefault(require("../models/route"));
 const user_1 = __importDefault(require("../models/user"));
 const cargarArchivo = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -47,14 +46,14 @@ const actualizarImagen = (req, res) => __awaiter(void 0, void 0, void 0, functio
                 });
             }
             break;
-        case 'route':
-            modelo = yield route_1.default.findById(id);
-            if (!modelo) {
-                return res.status(400).json({
-                    msg: `No existe una ruta con el id ${id}`
-                });
-            }
-            break;
+        // case 'route':
+        //     modelo = await Route.findById(id)
+        //     if (!modelo) {
+        //         return res.status(400).json({
+        //             msg: `No existe una ruta con el id ${id}`
+        //         })
+        //     }
+        //     break;
         default:
             return res.status(500).json({ msg: 'Se me olvidó' });
     }
@@ -93,14 +92,14 @@ const mostrarImagen = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 });
             }
             break;
-        case 'route':
-            modelo = yield route_1.default.findById(id);
-            if (!modelo) {
-                return res.status(400).json({
-                    msg: `No existe una ruta con el id ${id}`
-                });
-            }
-            break;
+        // case 'route':
+        //     modelo = await Route.findById(id)
+        //     if (!modelo) {
+        //         return res.status(400).json({
+        //             msg: `No existe una ruta con el id ${id}`
+        //         })
+        //     }
+        //     break;
         default:
             return res.status(500).json({ msg: 'Se me olvidó' });
     }
@@ -137,14 +136,14 @@ const actualizarImagenCloudinary = (req, res) => __awaiter(void 0, void 0, void 
                 });
             }
             break;
-        case 'route':
-            modelo = yield route_1.default.findById(id);
-            if (!modelo) {
-                return res.status(400).json({
-                    msg: `No existe una ruta con el id ${id}`
-                });
-            }
-            break;
+        // case 'route':
+        //     modelo = await Route.findById(id)
+        //     if (!modelo) {
+        //         return res.status(400).json({
+        //             msg: `No existe una ruta con el id ${id}`
+        //         })
+        //     }
+        //     break;
         default:
             return res.status(500).json({ msg: 'Se me olvidó' });
     }
