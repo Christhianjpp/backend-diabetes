@@ -23,7 +23,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteUser = exports.updateUser = exports.createUser = exports.getUser = exports.getUsers = void 0;
+exports.deleteUser = exports.updateUser = exports.createUser = exports.capitalizeName = exports.getUser = exports.getUsers = void 0;
 const user_1 = __importDefault(require("../models/user"));
 const bcrypt_handle_1 = require("../helpers/bcrypt-handle");
 const error_handle_1 = __importDefault(require("../helpers/error-handle"));
@@ -58,6 +58,14 @@ const getUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     }
 });
 exports.getUser = getUser;
+const capitalizeName = (name) => {
+    return name
+        .trim() // elimina espacios al inicio y al final
+        .split(/\s+/) // divide por uno o más espacios
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+};
+exports.capitalizeName = capitalizeName;
 const createUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     console.log("createUser");
     try {
@@ -65,33 +73,33 @@ const createUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         console.log(name, email, password);
         const user = new user_1.default({
             userName: (0, userCreateName_1.userName)(name),
-            name: name.toLowerCase(),
+            name: (0, exports.capitalizeName)(name),
             email: email.toLowerCase(),
             password,
         });
+        console.log(user);
         user.password = (0, bcrypt_handle_1.encrypt)(password);
         yield user.save();
         const token = yield (0, generate_jwt_1.default)(user.id);
         res.status(201).json({ user, token });
     }
     catch (error) {
-        (0, error_handle_1.default)(res, "ERROR_PUT_USER", error);
+        (0, error_handle_1.default)(res, "ERROR_CREATE_USER", error);
         console.log(error);
     }
 });
 exports.createUser = createUser;
 const updateUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    console.log("updateUser");
     try {
         const id = req.params.id;
         const _a = req.body, { password, google, email } = _a, resto = __rest(_a, ["password", "google", "email"]);
-        console.log({ resto });
-        console.log(id);
+        console.log(resto);
         const user = yield user_1.default.findByIdAndUpdate(id, resto, { new: true });
-        console.log({ user });
         res.status(200).json({ user });
     }
     catch (error) {
-        (0, error_handle_1.default)(res, "ERROR_PUT_USER", error);
+        (0, error_handle_1.default)(res, "ERROR_UPDATE_USER", error);
     }
 });
 exports.updateUser = updateUser;

@@ -18,7 +18,15 @@ const user_1 = __importDefault(require("../models/user"));
 //     user?: string | JwtPayload;
 // }
 const validateJWTForgot = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    const token = req.header('x-token');
+    const authHeader = req.header("Authorization");
+    // const token = req.header('x-token')
+    if (!authHeader) {
+        return res.status(401).json({
+            ok: false,
+            msg: "No hay token en la petición"
+        });
+    }
+    const token = authHeader.replace(/^Bearer\s+/, "");
     if (!token) {
         return res.status(401).json({
             msg: 'There is no token in the request'

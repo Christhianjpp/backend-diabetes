@@ -11,13 +11,28 @@ export interface IHealthInfo {
   diagnosisDate?: Date;
 }
 
+export interface IAddress {
+  city?: string;
+  country?: string;
+  stateProvince?: string;
+  location?: {
+    type: "Point";
+    coordinates: [number, number];
+  };
+}
+
 export interface IUser extends Document {
   uid: string;
   name: string;
   userName: string;
+  dateOfBirth?: Date;
+  gender?: "male" | "female" | "other";
+  height?: number;
+  weight?: number;
+  address?: IAddress;
+  phone?: string;
   email: string;
   password: string;
-  dateOfBirth?: Date;
   img?: string;
   rol: "ADMIN_ROLE" | "DOCTOR_ROLE" | "PATIENT_ROLE" | "USER_ROLE";
   state: boolean;
@@ -37,11 +52,7 @@ export interface IUser extends Document {
     read: boolean;
   }>;
   violations: number;
-  healthInfo?: IHealthInfo;
-  location: {
-    type: "Point";
-    coordinates: [number, number];
-  };
   formRef?: Types.ObjectId;
   chats: [Types.ObjectId];
+  healthInfo?: IHealthInfo;
 }

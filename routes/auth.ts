@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { check } from "express-validator";
 import {
+  changePassword,
   forgotPassword,
   googleSignIn,
   login,
@@ -39,6 +40,17 @@ router.post(
 );
 
 router.post(
+  "/change-password",
+  [
+    validateJWT,
+    check("currentPassword", "Current password is required").not().isEmpty(),
+    check("newPassword", "New password is required").not().isEmpty(),
+    validateFields,
+  ],
+  changePassword
+);
+
+router.post(
   "/forgot-password",
   [
     check("email", "Email is required").not().isEmpty(),
@@ -50,7 +62,7 @@ router.post(
 );
 
 router.post(
-  "/verify-code",
+  "/verify-reset-code",
   [
     validateJWTForgot,
     check("code", "code is required").not().isEmpty(),

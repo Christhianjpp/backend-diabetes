@@ -19,13 +19,19 @@ router.post("/login", [
     validate_fields_1.default,
 ], auth_1.login);
 router.post("/google", [(0, express_validator_1.check)("id_token", "id_token is requerired").not().isEmpty(), validate_fields_1.default], auth_1.googleSignIn);
+router.post("/change-password", [
+    middlewares_1.validateJWT,
+    (0, express_validator_1.check)("currentPassword", "Current password is required").not().isEmpty(),
+    (0, express_validator_1.check)("newPassword", "New password is required").not().isEmpty(),
+    validate_fields_1.default,
+], auth_1.changePassword);
 router.post("/forgot-password", [
     (0, express_validator_1.check)("email", "Email is required").not().isEmpty(),
     validate_fields_1.default,
     (0, express_validator_1.check)("email", "Email is invalid").isEmail(),
     validate_fields_1.default,
 ], auth_1.forgotPassword);
-router.post("/verify-code", [
+router.post("/verify-reset-code", [
     validate_jwt_forgot_1.default,
     (0, express_validator_1.check)("code", "code is required").not().isEmpty(),
     (0, express_validator_1.check)("code", "The code must have more than 8 letters").isLength({

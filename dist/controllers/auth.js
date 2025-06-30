@@ -1,4 +1,27 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -12,7 +35,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.newForgotPassword = exports.verifyCode = exports.forgotPassword = exports.googleSignIn = exports.login = exports.validarTokenUser = void 0;
+exports.newForgotPassword = exports.verifyCode = exports.forgotPassword = exports.changePassword = exports.googleSignIn = exports.login = exports.validarTokenUser = void 0;
 const user_1 = __importDefault(require("../models/user"));
 const bcrypt_handle_1 = require("../helpers/bcrypt-handle");
 const generate_jwt_1 = __importDefault(require("../helpers/generate-jwt"));
@@ -22,8 +45,8 @@ const jsonwebtoken_1 = require("jsonwebtoken");
 const code_verification_1 = require("../helpers/code-verification");
 const send_email_1 = require("../helpers/send-email");
 const verification_code_1 = __importDefault(require("../models/verification-code"));
+const error_handle_1 = __importStar(require("../helpers/error-handle"));
 const validarTokenUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    console.log("validarTokenUser");
     try {
         const user = req.user;
         const token = yield (0, generate_jwt_1.default)(user._id);
@@ -33,9 +56,9 @@ const validarTokenUser = (req, res) => __awaiter(void 0, void 0, void 0, functio
         });
     }
     catch (error) {
-        console.log(error);
-        res.status(500).json({
-            msg: "Error Token",
+        (0, error_handle_1.default)(res, "Error al validar token", {
+            statusCode: error_handle_1.HttpStatusCode.INTERNAL_SERVER,
+            data: error
         });
     }
 });
@@ -46,37 +69,37 @@ const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const user = yield user_1.default.findOne({ email: regex });
         if (!user) {
-            return res.status(400).json({
-                msg: "Email or password is incorrect",
+            return (0, error_handle_1.default)(res, "Email o contraseña incorrecta", {
+                statusCode: error_handle_1.HttpStatusCode.BAD_REQUEST
             });
         }
         if (!user.state) {
-            return res.status(400).json({
-                msg: "Email or password is incorrect",
+            return (0, error_handle_1.default)(res, "Email o contraseña incorrecta", {
+                statusCode: error_handle_1.HttpStatusCode.BAD_REQUEST
             });
         }
         const validPassword = (0, bcrypt_handle_1.verfied)(password, user.password);
         if (!validPassword) {
-            return res.status(400).json({
-                msg: "Email or password is incorrect",
+            return (0, error_handle_1.default)(res, "Email o contraseña incorrecta", {
+                statusCode: error_handle_1.HttpStatusCode.BAD_REQUEST
             });
         }
         const token = yield (0, generate_jwt_1.default)(user.id);
+        console.log({ user });
         res.json({
             user,
             token,
         });
     }
     catch (error) {
-        console.log(error);
-        res.status(500).json({
-            msg: "Talk to the administrator",
+        (0, error_handle_1.default)(res, "Hable con el administrador", {
+            statusCode: error_handle_1.HttpStatusCode.INTERNAL_SERVER,
+            data: error
         });
     }
 });
 exports.login = login;
 const googleSignIn = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    console.log("googleSignIn");
     const { id_token } = req.body;
     try {
         const { name, img, email } = yield (0, google_verify_1.default)(id_token);
@@ -96,8 +119,8 @@ const googleSignIn = (req, res) => __awaiter(void 0, void 0, void 0, function* (
         }
         // Verificar estado del usuario
         if (!user.state) {
-            return res.status(401).json({
-                msg: "User blocked",
+            return (0, error_handle_1.default)(res, "Usuario bloqueado", {
+                statusCode: error_handle_1.HttpStatusCode.UNAUTHORIZED
             });
         }
         const token = yield (0, generate_jwt_1.default)(user.id);
@@ -107,13 +130,43 @@ const googleSignIn = (req, res) => __awaiter(void 0, void 0, void 0, function* (
         });
     }
     catch (error) {
-        console.log(error);
-        res.status(400).json({
-            msg: "Error Token Google",
+        (0, error_handle_1.default)(res, "Error en token de Google", {
+            statusCode: error_handle_1.HttpStatusCode.BAD_REQUEST,
+            data: error
         });
     }
 });
 exports.googleSignIn = googleSignIn;
+const changePassword = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    console.log('Cambio de contraseña');
+    try {
+        const { currentPassword, newPassword } = req.body;
+        const user = req.user;
+        console.log({ currentPassword, newPassword });
+        if (!user) {
+            return (0, error_handle_1.default)(res, "Usuario no encontrado", {
+                statusCode: error_handle_1.HttpStatusCode.NOT_FOUND
+            });
+        }
+        const validPassword = (0, bcrypt_handle_1.verfied)(currentPassword, user.password);
+        console.log({ validPassword });
+        if (!validPassword) {
+            return (0, error_handle_1.default)(res, "Contraseña actual incorrecta", {
+                statusCode: error_handle_1.HttpStatusCode.BAD_REQUEST
+            });
+        }
+        user.password = (0, bcrypt_handle_1.encrypt)(newPassword);
+        yield user.save();
+        res.status(200).json({ msg: "Contraseña actualizada correctamente" });
+    }
+    catch (error) {
+        (0, error_handle_1.default)(res, "Error al cambiar contraseña", {
+            statusCode: error_handle_1.HttpStatusCode.INTERNAL_SERVER,
+            data: error
+        });
+    }
+});
+exports.changePassword = changePassword;
 const forgotPassword = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { email } = req.body;
     try {
@@ -122,13 +175,14 @@ const forgotPassword = (req, res) => __awaiter(void 0, void 0, void 0, function*
             email: { $regex: new RegExp("^" + email + "$", "i") },
         });
         if (!user || !(user === null || user === void 0 ? void 0 : user.state)) {
-            return res.status(404).json({
-                msg: "Lo sentimos, no se ha encontrado ninguna coincidencia. Por favor, intente nuevamente.",
+            return (0, error_handle_1.default)(res, "Lo sentimos, no se ha encontrado ninguna coincidencia. Por favor, intente nuevamente.", {
+                statusCode: error_handle_1.HttpStatusCode.NOT_FOUND
             });
         }
         const token = (0, jsonwebtoken_1.sign)({ uid: user._id }, `${process.env.SECRETORPRIVATEKEYFORGOT}`, {
             expiresIn: "3m",
         });
+        console.log('token sendEmailPasswordForgot', token);
         // Genera un codigo numerico de 8 sifras, expira en 5 minutos y lo almacena en la base de datos
         const verificationCode = yield (0, code_verification_1.generateVerificationCode)(user._id.toString());
         // Envia un correo electronico al usuario con el co digo
@@ -137,39 +191,44 @@ const forgotPassword = (req, res) => __awaiter(void 0, void 0, void 0, function*
         res.status(200).json(token);
     }
     catch (error) {
-        console.log(error);
-        return res.json({
-            msg: "Revise su correo electrónico para obtener un enlace para restablecer su contraseña",
+        (0, error_handle_1.default)(res, "Revise su correo electrónico para obtener un enlace para restablecer su contraseña", {
+            data: error
         });
     }
 });
 exports.forgotPassword = forgotPassword;
 const verifyCode = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    console.log("verifyCode");
     const { code } = req.body;
     const user = req.user;
-    // octengo el codigo de verificación de la base de datos
-    const resp = yield verification_code_1.default.findOne({ userId: user._id }).sort({ createdAt: -1 }); // Ordenar por `createdAt` en orden descendente
-    console.log("resp", resp);
-    // Verifico si el codigo existe
-    if (!resp) {
-        res.status(401).json({ msg: "Expired Code" });
-        return;
+    try {
+        // octengo el codigo de verificación de la base de datos
+        const resp = yield verification_code_1.default.findOne({ userId: user._id }).sort({ createdAt: -1 }); // Ordenar por `createdAt` en orden descendente
+        // Verifico si el codigo existe
+        if (!resp) {
+            return (0, error_handle_1.default)(res, "Código expirado", {
+                statusCode: error_handle_1.HttpStatusCode.UNAUTHORIZED
+            });
+        }
+        // Verifico si el codigo es el mismo que envio el usuario
+        if (resp.code === code) {
+            res.status(200).json({ msg: "Code OK" });
+            return;
+        }
+        return (0, error_handle_1.default)(res, "Código inválido", {
+            statusCode: error_handle_1.HttpStatusCode.UNAUTHORIZED
+        });
     }
-    console.log(resp.code, code);
-    // Verifico si el codigo es el mismo que envio el usuario
-    if (resp.code === code) {
-        res.status(200).json({ msg: "Code OK" });
-        return;
+    catch (error) {
+        (0, error_handle_1.default)(res, "Error al verificar código", {
+            statusCode: error_handle_1.HttpStatusCode.INTERNAL_SERVER,
+            data: error
+        });
     }
-    res.status(401).json({ msg: "Invalid Code" });
 });
 exports.verifyCode = verifyCode;
 const newForgotPassword = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     var _a;
-    console.log("first");
     const { password } = req.body;
-    console.log({ password });
     const id = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
     try {
         // Guardo la nueva contraseña
@@ -177,20 +236,17 @@ const newForgotPassword = (req, res) => __awaiter(void 0, void 0, void 0, functi
             password: (0, bcrypt_handle_1.encrypt)(password),
         });
         if (!user) {
-            res.status(400).json({ msg: "Error Update Password" });
-            return;
+            return (0, error_handle_1.default)(res, "Error al actualizar contraseña", {
+                statusCode: error_handle_1.HttpStatusCode.BAD_REQUEST
+            });
         }
-        // creo un nuevo token
-        const token = yield (0, generate_jwt_1.default)(user.id);
-        console.log(user);
-        res.status(200).json({
-            user,
-            token,
-        });
+        res.status(200).json({ msg: 'Contraseña actualizada correctamente' });
     }
     catch (error) {
-        console.log(error);
-        return res.json({ msg: "Error New Password" });
+        (0, error_handle_1.default)(res, "Error al crear nueva contraseña", {
+            statusCode: error_handle_1.HttpStatusCode.INTERNAL_SERVER,
+            data: error
+        });
     }
 });
 exports.newForgotPassword = newForgotPassword;

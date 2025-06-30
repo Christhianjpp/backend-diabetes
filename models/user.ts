@@ -30,6 +30,48 @@ const UserSchema = new Schema<IUser>(
             type: Date,
             required: false,
         },
+        gender: {
+            type: String,
+            enum: ['male', 'female', 'other'],
+            required: false,
+        },
+        height: {
+            type: Number,
+            required: false,
+        },
+        weight: {
+            type: Number,
+            required: false,
+        },
+        address: {
+            city: {
+                type: String,
+                required: false,
+            },
+            country: {
+                type: String,
+                required: false,
+            },
+            stateProvince: {
+                type: String,
+                required: false,
+            },
+            location: {
+                type: {
+                    type: String,
+                    enum: ['Point'],
+                    default: 'Point',
+                },
+                coordinates: {
+                    type: [Number],
+                    default: [0, 0],
+                },
+            },
+        },
+        phone: {
+            type: String,
+            required: false,
+        },
         rol: {
             type: String,
             default: 'PATIENT_ROLE',
@@ -124,18 +166,6 @@ const UserSchema = new Schema<IUser>(
             diagnosisDate: {
                 type: Date,
                 default: null,
-            },
-        },
-        // Geolocalización
-        location: {
-            type: {
-                type: String,
-                enum: ['Point'], // Definimos que es un punto
-                default: 'Point',
-            },
-            coordinates: {
-                type: [Number], // Array [longitud, latitud]
-                default: [0, 0],
             },
         },
         // Referencia a formulario, opcional

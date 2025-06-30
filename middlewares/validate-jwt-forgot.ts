@@ -14,8 +14,20 @@ interface IDecode {
 // }
 
 const validateJWTForgot = async (req: Request, res: Response, next: NextFunction) => {
+ 
+    const authHeader = req.header("Authorization");
+  
 
-    const token = req.header('x-token')
+    // const token = req.header('x-token')
+    if (!authHeader) {
+        return res.status(401).json({
+          ok: false,
+          msg: "No hay token en la petición"
+        });
+      }
+      const token = authHeader.replace(/^Bearer\s+/, "");
+   
+      
     if (!token) {
         return res.status(401).json({
             msg: 'There is no token in the request'

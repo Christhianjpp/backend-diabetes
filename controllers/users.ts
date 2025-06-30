@@ -17,7 +17,7 @@ export const getUsers = async (req: Request, res: Response) => {
     ]);
 
     res.status(200).json({ total, users });
-  } catch (error) {
+  } catch (error: any) {
     handleError(res, "ERROR_GET_USERS", error);
   }
 };
@@ -29,47 +29,62 @@ export const getUser = async (req: Request, res: Response) => {
       return handleError(res, `User: ${id}, does not exist`);
     }
     res.status(200).json({ user });
-  } catch (error) {
+  } catch (error: any) {
     handleError(res, "ERROR_GET_USER", error);
   }
 };
+
+export const capitalizeName = (name: string): string => {
+  return name
+    .trim() // elimina espacios al inicio y al final
+    .split(/\s+/) // divide por uno o más espacios
+    .map(word =>
+      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    )
+    .join(' ');
+};
+
 export const createUser = async (req: Request, res: Response) => {
   console.log("createUser");
 
+
+  
   try {
     const { name, email, password } = <IUser>req.body;
     console.log(name, email, password);
     const user = new User({
       userName: userName(name),
-      name: name.toLowerCase(),
+      name: capitalizeName(name),
       email: email.toLowerCase(),
       password,
     });
+    console.log(user);
 
     user.password = encrypt(password);
     await user.save();
 
     const token = await generatJWT(user.id);
     res.status(201).json({ user, token });
-  } catch (error) {
-    handleError(res, "ERROR_PUT_USER", error);
+  } catch (error: any) {
+    handleError(res, "ERROR_CREATE_USER", error);
     console.log(error);
   }
 };
 
 export const updateUser = async (req: Request, res: Response) => {
+  console.log("updateUser");
   try {
     const id = req.params.id;
     const { password, google, email, ...resto }: IUser = req.body;
-    console.log({ resto });
-    console.log(id);
+    
+console.log(resto);
 
     const user = <IUser>await User.findByIdAndUpdate(id, resto, { new: true });
-    console.log({ user });
+   
 
     res.status(200).json({ user });
-  } catch (error) {
-    handleError(res, "ERROR_PUT_USER", error);
+  } catch (error: any) {
+    handleError(res, "ERROR_UPDATE_USER", error);
   }
 };
 
@@ -80,7 +95,7 @@ export const deleteUser = async (req: Request, res: Response) => {
     await User.findByIdAndUpdate(id, { state: false }, { new: true });
 
     res.status(200).json({ msg: "Deleted user" });
-  } catch (error) {
+  } catch (error: any) {
     handleError(res, "ERROR_DELETE_USER", error);
   }
 };

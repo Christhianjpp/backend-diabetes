@@ -1,14 +1,24 @@
 import { NextFunction, Request, Response } from "express";
 import { validationResult } from "express-validator";
+import handleError, { HttpStatusCode } from "../helpers/error-handle";
 
 const validateFields = (req: Request, res: Response, next: NextFunction) => {
-  console.log("validateFields");
-  
   const errors = validationResult(req);
 
-  console.log(errors);
   if (!errors.isEmpty()) {
-    return res.status(400).json(errors);
+    // Extraer solo los mensajes de error
+    const errorArray = errors.array();
+    const errorMessages = errorArray.map(err => err.msg);
+    
+    // Usar el primer mensaje o combinarlos si hay múltiples
+    const errorMessage = errorMessages.length === 1 
+      ? errorMessages[0] 
+      : errorMessages.join('. ');
+    
+    return handleError(res, errorMessage, {
+      statusCode: HttpStatusCode.BAD_REQUEST,
+      logError: true
+    });
   }
 
   next();
