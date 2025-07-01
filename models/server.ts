@@ -1,10 +1,11 @@
 import express, { Application } from "express";
 import cors from "cors";
+import fileUpload from "express-fileupload";
 import dbConnection from "../database/config";
 import userRouter from "../routes/users";
 import userAuth from "../routes/auth";
 import userUploads from "../routes/uploads";
-import fileUpload from "express-fileupload";
+import notificationPush from "../routes/notification-push";
 
 class Server {
   private app: Application;
@@ -13,6 +14,7 @@ class Server {
     users: "/api/users",
     auth: "/api/auth",
     uploads: "/api/uploads",
+    notifications: "/api/notification-push",
   };
 
   constructor() {
@@ -44,6 +46,7 @@ class Server {
     this.app.use(this.apiPaths.users, userRouter);
     this.app.use(this.apiPaths.auth, userAuth);
     this.app.use(this.apiPaths.uploads, userUploads);
+    this.app.use(this.apiPaths.notifications, notificationPush);
   }
   listen() {
     this.app.listen(this.port, () => {

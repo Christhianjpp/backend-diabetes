@@ -14,17 +14,19 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
+const express_fileupload_1 = __importDefault(require("express-fileupload"));
 const config_1 = __importDefault(require("../database/config"));
 const users_1 = __importDefault(require("../routes/users"));
 const auth_1 = __importDefault(require("../routes/auth"));
 const uploads_1 = __importDefault(require("../routes/uploads"));
-const express_fileupload_1 = __importDefault(require("express-fileupload"));
+const notification_push_1 = __importDefault(require("../routes/notification-push"));
 class Server {
     constructor() {
         this.apiPaths = {
             users: "/api/users",
             auth: "/api/auth",
             uploads: "/api/uploads",
+            notifications: "/api/notification-push",
         };
         this.app = (0, express_1.default)();
         this.port = process.env.PORT || "8080";
@@ -51,6 +53,7 @@ class Server {
         this.app.use(this.apiPaths.users, users_1.default);
         this.app.use(this.apiPaths.auth, auth_1.default);
         this.app.use(this.apiPaths.uploads, uploads_1.default);
+        this.app.use(this.apiPaths.notifications, notification_push_1.default);
     }
     listen() {
         this.app.listen(this.port, () => {
