@@ -209,3 +209,257 @@ export const getUserTokens = async (req: Request, res: Response): Promise<void> 
     res.status(500).json({ message: error.message });
   }
 };
+
+export const getAllUsersTokens = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Buscar todos los usuarios activos que tengan pushTokens
+    const users = await User.find({ 
+      state: true,
+      pushTokens: { $exists: true, $ne: [] }
+    }).select('userName email pushTokens rol');
+
+    // Extraer todos los tokens con información del usuario
+    const allTokens: Array<{
+      token: string;
+      device: string;
+      createdAt: Date;
+      userId: string;
+      userName: string;
+      email: string;
+      rol: string;
+    }> = [];
+
+    users.forEach(user => {
+      if (user.pushTokens && user.pushTokens.length > 0) {
+        user.pushTokens.forEach((tokenObj: any) => {
+          allTokens.push({
+            token: tokenObj.token,
+            device: tokenObj.device || 'unknown',
+            createdAt: tokenObj.createdAt,
+            userId: user.id,
+            userName: user.userName,
+            email: user.email,
+            rol: user.rol
+          });
+        });
+      }
+    });
+
+    // Estadísticas
+    const stats = {
+      totalUsers: users.length,
+      totalTokens: allTokens.length,
+      tokensByRole: allTokens.reduce((acc: any, token) => {
+        acc[token.rol] = (acc[token.rol] || 0) + 1;
+        return acc;
+      }, {})
+    };
+
+    console.log(`📊 Retrieved ${allTokens.length} tokens from ${users.length} users`);
+
+    res.json({
+      message: 'All users tokens retrieved successfully',
+      tokens: allTokens,
+      stats
+    });
+
+  } catch (error: any) {
+    console.error('❌ Error getting all users tokens:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const getAllUsersTokensOnly = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Buscar todos los usuarios activos que tengan pushTokens
+    const users = await User.find({ 
+      state: true,
+      pushTokens: { $exists: true, $ne: [] }
+    }).select('pushTokens');
+
+    // Extraer solo los tokens como array plano
+    const tokens: string[] = [];
+
+    users.forEach(user => {
+      if (user.pushTokens && user.pushTokens.length > 0) {
+        user.pushTokens.forEach((tokenObj: any) => {
+          tokens.push(tokenObj.token);
+        });
+      }
+    });
+
+    console.log(`📱 Retrieved ${tokens.length} tokens from ${users.length} users`);
+
+    res.json({
+      message: 'All tokens retrieved successfully',
+      tokens,
+      count: tokens.length
+    });
+
+  } catch (error: any) {
+    console.error('❌ Error getting all tokens:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const sendNotificationToUser = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { userId, title, body, data } = req.body;
+
+    // Validaciones
+    if (!userId) {
+      res.status(400).json({ message: 'User ID is required' });
+      return;
+    }
+
+    if (!title || !body) {
+      res.status(400).json({ message: 'Title and body are required' });
+      return;
+    }
+
+    // Buscar el usuario por ID
+    const user = await User.findById(userId).select('userName pushTokens state');
+    
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+
+    if (!user.state) {
+      res.status(400).json({ message: 'User is not active' });
+      return;
+    }
+
+    // Verificar si el usuario tiene tokens
+    if (!user.pushTokens || user.pushTokens.length === 0) {
+      console.log(`⚠️  User ${user.userName} has no push tokens`);
+      res.status(400).json({ message: 'User has no push tokens registered' });
+      return;
+    }
+
+    // Extraer los tokens del usuario
+    const userTokens = user.pushTokens.map((tokenObj: any) => tokenObj.token);
+
+    console.log(`📱 Sending notification to user: ${user.userName} (${userTokens.length} tokens)`);
+
+    // Enviar la notificación
+    const result = await notificationService.sendNotification({
+      tokens: userTokens,
+      title,
+      body,
+      data: data || {}
+    });
+
+    console.log(`✅ Notification sent to ${user.userName}:`, result);
+
+    res.json({
+      message: `Notification sent successfully to ${user.userName}`,
+      user: {
+        id: user.id,
+        userName: user.userName,
+        tokensCount: userTokens.length
+      },
+      result
+    });
+
+  } catch (error: any) {
+    console.error('❌ Error sending notification to user:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const sendNotificationToAllUsers = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { title, body, data, roleFilter } = req.body;
+
+    // Validaciones
+    if (!title || !body) {
+      res.status(400).json({ message: 'Title and body are required' });
+      return;
+    }
+
+    // Construir filtro de búsqueda
+    let searchFilter: any = { 
+      state: true,
+      pushTokens: { $exists: true, $ne: [] }
+    };
+
+    // Filtrar por rol si se especifica
+    if (roleFilter && Array.isArray(roleFilter) && roleFilter.length > 0) {
+      searchFilter.rol = { $in: roleFilter };
+    }
+
+    // Buscar usuarios que cumplan los criterios
+    const users = await User.find(searchFilter).select('userName pushTokens rol');
+
+    if (users.length === 0) {
+      res.status(404).json({ message: 'No users found with push tokens' });
+      return;
+    }
+
+    // Extraer todos los tokens
+    const allTokens: string[] = [];
+    const userSummary: Array<{
+      userId: string;
+      userName: string;
+      rol: string;
+      tokensCount: number;
+    }> = [];
+
+    users.forEach(user => {
+      if (user.pushTokens && user.pushTokens.length > 0) {
+        const userTokens = user.pushTokens.map((tokenObj: any) => tokenObj.token);
+        allTokens.push(...userTokens);
+        
+        userSummary.push({
+          userId: user.id,
+          userName: user.userName,
+          rol: user.rol,
+          tokensCount: userTokens.length
+        });
+      }
+    });
+
+    if (allTokens.length === 0) {
+      res.status(400).json({ message: 'No valid tokens found' });
+      return;
+    }
+
+    console.log(`📢 Sending notification to ${users.length} users (${allTokens.length} tokens)`);
+    if (roleFilter) {
+      console.log(`🎯 Role filter applied: ${roleFilter.join(', ')}`);
+    }
+
+    // Enviar la notificación
+    const result = await notificationService.sendNotification({
+      tokens: allTokens,
+      title,
+      body,
+      data: data || {}
+    });
+
+    console.log(`✅ Mass notification sent:`, result);
+
+    // Estadísticas por rol
+    const roleStats = userSummary.reduce((acc: any, user) => {
+      acc[user.rol] = (acc[user.rol] || 0) + 1;
+      return acc;
+    }, {});
+
+    res.json({
+      message: `Notification sent successfully to ${users.length} users`,
+      stats: {
+        totalUsers: users.length,
+        totalTokens: allTokens.length,
+        roleStats,
+        appliedRoleFilter: roleFilter || null
+      },
+      users: userSummary,
+      result
+    });
+
+  } catch (error: any) {
+    console.error('❌ Error sending mass notification:', error);
+    res.status(500).json({ message: error.message });
+  }
+};

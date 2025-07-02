@@ -8,9 +8,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getUserTokens = exports.removePushToken = exports.registerPushToken = exports.sendNotification = void 0;
+exports.sendNotificationToAllUsers = exports.sendNotificationToUser = exports.getAllUsersTokensOnly = exports.getAllUsersTokens = exports.getUserTokens = exports.removePushToken = exports.registerPushToken = exports.sendNotification = void 0;
 const pushNotification_1 = require("../services/pushNotification");
+const user_1 = __importDefault(require("../models/user"));
 const notificationService = new pushNotification_1.PushNotificationService();
 const sendNotification = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { tokens, title, body, data } = req.body;
@@ -188,4 +192,211 @@ const getUserTokens = (req, res) => __awaiter(void 0, void 0, void 0, function* 
     }
 });
 exports.getUserTokens = getUserTokens;
+const getAllUsersTokens = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        // Buscar todos los usuarios activos que tengan pushTokens
+        const users = yield user_1.default.find({
+            state: true,
+            pushTokens: { $exists: true, $ne: [] }
+        }).select('userName email pushTokens rol');
+        // Extraer todos los tokens con información del usuario
+        const allTokens = [];
+        users.forEach(user => {
+            if (user.pushTokens && user.pushTokens.length > 0) {
+                user.pushTokens.forEach((tokenObj) => {
+                    allTokens.push({
+                        token: tokenObj.token,
+                        device: tokenObj.device || 'unknown',
+                        createdAt: tokenObj.createdAt,
+                        userId: user.id,
+                        userName: user.userName,
+                        email: user.email,
+                        rol: user.rol
+                    });
+                });
+            }
+        });
+        // Estadísticas
+        const stats = {
+            totalUsers: users.length,
+            totalTokens: allTokens.length,
+            tokensByRole: allTokens.reduce((acc, token) => {
+                acc[token.rol] = (acc[token.rol] || 0) + 1;
+                return acc;
+            }, {})
+        };
+        console.log(`📊 Retrieved ${allTokens.length} tokens from ${users.length} users`);
+        res.json({
+            message: 'All users tokens retrieved successfully',
+            tokens: allTokens,
+            stats
+        });
+    }
+    catch (error) {
+        console.error('❌ Error getting all users tokens:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+exports.getAllUsersTokens = getAllUsersTokens;
+const getAllUsersTokensOnly = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        // Buscar todos los usuarios activos que tengan pushTokens
+        const users = yield user_1.default.find({
+            state: true,
+            pushTokens: { $exists: true, $ne: [] }
+        }).select('pushTokens');
+        // Extraer solo los tokens como array plano
+        const tokens = [];
+        users.forEach(user => {
+            if (user.pushTokens && user.pushTokens.length > 0) {
+                user.pushTokens.forEach((tokenObj) => {
+                    tokens.push(tokenObj.token);
+                });
+            }
+        });
+        console.log(`📱 Retrieved ${tokens.length} tokens from ${users.length} users`);
+        res.json({
+            message: 'All tokens retrieved successfully',
+            tokens,
+            count: tokens.length
+        });
+    }
+    catch (error) {
+        console.error('❌ Error getting all tokens:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+exports.getAllUsersTokensOnly = getAllUsersTokensOnly;
+const sendNotificationToUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { userId, title, body, data } = req.body;
+        // Validaciones
+        if (!userId) {
+            res.status(400).json({ message: 'User ID is required' });
+            return;
+        }
+        if (!title || !body) {
+            res.status(400).json({ message: 'Title and body are required' });
+            return;
+        }
+        // Buscar el usuario por ID
+        const user = yield user_1.default.findById(userId).select('userName pushTokens state');
+        if (!user) {
+            res.status(404).json({ message: 'User not found' });
+            return;
+        }
+        if (!user.state) {
+            res.status(400).json({ message: 'User is not active' });
+            return;
+        }
+        // Verificar si el usuario tiene tokens
+        if (!user.pushTokens || user.pushTokens.length === 0) {
+            console.log(`⚠️  User ${user.userName} has no push tokens`);
+            res.status(400).json({ message: 'User has no push tokens registered' });
+            return;
+        }
+        // Extraer los tokens del usuario
+        const userTokens = user.pushTokens.map((tokenObj) => tokenObj.token);
+        console.log(`📱 Sending notification to user: ${user.userName} (${userTokens.length} tokens)`);
+        // Enviar la notificación
+        const result = yield notificationService.sendNotification({
+            tokens: userTokens,
+            title,
+            body,
+            data: data || {}
+        });
+        console.log(`✅ Notification sent to ${user.userName}:`, result);
+        res.json({
+            message: `Notification sent successfully to ${user.userName}`,
+            user: {
+                id: user.id,
+                userName: user.userName,
+                tokensCount: userTokens.length
+            },
+            result
+        });
+    }
+    catch (error) {
+        console.error('❌ Error sending notification to user:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+exports.sendNotificationToUser = sendNotificationToUser;
+const sendNotificationToAllUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { title, body, data, roleFilter } = req.body;
+        // Validaciones
+        if (!title || !body) {
+            res.status(400).json({ message: 'Title and body are required' });
+            return;
+        }
+        // Construir filtro de búsqueda
+        let searchFilter = {
+            state: true,
+            pushTokens: { $exists: true, $ne: [] }
+        };
+        // Filtrar por rol si se especifica
+        if (roleFilter && Array.isArray(roleFilter) && roleFilter.length > 0) {
+            searchFilter.rol = { $in: roleFilter };
+        }
+        // Buscar usuarios que cumplan los criterios
+        const users = yield user_1.default.find(searchFilter).select('userName pushTokens rol');
+        if (users.length === 0) {
+            res.status(404).json({ message: 'No users found with push tokens' });
+            return;
+        }
+        // Extraer todos los tokens
+        const allTokens = [];
+        const userSummary = [];
+        users.forEach(user => {
+            if (user.pushTokens && user.pushTokens.length > 0) {
+                const userTokens = user.pushTokens.map((tokenObj) => tokenObj.token);
+                allTokens.push(...userTokens);
+                userSummary.push({
+                    userId: user.id,
+                    userName: user.userName,
+                    rol: user.rol,
+                    tokensCount: userTokens.length
+                });
+            }
+        });
+        if (allTokens.length === 0) {
+            res.status(400).json({ message: 'No valid tokens found' });
+            return;
+        }
+        console.log(`📢 Sending notification to ${users.length} users (${allTokens.length} tokens)`);
+        if (roleFilter) {
+            console.log(`🎯 Role filter applied: ${roleFilter.join(', ')}`);
+        }
+        // Enviar la notificación
+        const result = yield notificationService.sendNotification({
+            tokens: allTokens,
+            title,
+            body,
+            data: data || {}
+        });
+        console.log(`✅ Mass notification sent:`, result);
+        // Estadísticas por rol
+        const roleStats = userSummary.reduce((acc, user) => {
+            acc[user.rol] = (acc[user.rol] || 0) + 1;
+            return acc;
+        }, {});
+        res.json({
+            message: `Notification sent successfully to ${users.length} users`,
+            stats: {
+                totalUsers: users.length,
+                totalTokens: allTokens.length,
+                roleStats,
+                appliedRoleFilter: roleFilter || null
+            },
+            users: userSummary,
+            result
+        });
+    }
+    catch (error) {
+        console.error('❌ Error sending mass notification:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+exports.sendNotificationToAllUsers = sendNotificationToAllUsers;
 //# sourceMappingURL=notification-push.js.map
