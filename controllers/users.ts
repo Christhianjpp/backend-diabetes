@@ -88,6 +88,58 @@ console.log(resto);
   }
 };
 
+export const updateProfileVisibility = async (req: Request, res: Response) => {
+  console.log('updateProfileVisibility');
+
+  try {
+    const { id } = req.params;
+    const { profileVisibility } = req.body as { profileVisibility: string };
+    console.log('profileVisibility', profileVisibility);
+    if (!['private', 'connections', 'connections_groups', 'public'].includes(profileVisibility)) {
+      return handleError(res, 'Invalid profile visibility value');
+    }
+
+    const user = await User.findByIdAndUpdate(
+      id,
+      { profileVisibility },
+      { new: true }
+    );
+    if (!user) {
+      return handleError(res, `User: ${id}, does not exist`);
+    }
+    res.status(200).json({ user });
+  } catch (error: any) {
+    handleError(res, 'ERROR_UPDATE_PROFILE_VISIBILITY', error);
+  }
+};
+
+export const updateNotificationPreferences = async (req: Request, res: Response) => {
+  console.log('updateNotificationPreferences');
+  try {
+    const { id } = req.params;
+    const { push, email, app } = req.body as {
+      push?: boolean;
+      email?: boolean;
+      app?: boolean;
+    };
+
+    // Construimos dinámicamente solo los campos presentes
+    const fieldsToUpdate: Record<string, boolean> = {};
+    if (typeof push === 'boolean') fieldsToUpdate['notificationPreferences.push'] = push;
+    if (typeof email === 'boolean') fieldsToUpdate['notificationPreferences.email'] = email;
+    if (typeof app === 'boolean') fieldsToUpdate['notificationPreferences.app'] = app;
+
+    const user = await User.findByIdAndUpdate(id, fieldsToUpdate, { new: true });
+    if (!user) {
+      return handleError(res, `User: ${id}, does not exist`);
+    }
+
+    res.status(200).json({ user });
+  } catch (error: any) {
+    handleError(res, 'ERROR_UPDATE_NOTIFICATION_PREFERENCES', error);
+  }
+};
+
 export const deleteUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;

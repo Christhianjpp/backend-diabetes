@@ -53,7 +53,27 @@ const UserSchema = new mongoose_1.Schema({
         required: false,
     },
     address: {
+        formattedAddress: {
+            type: String,
+            required: false,
+        },
+        street: {
+            type: String,
+            required: false,
+        },
+        streetNumber: {
+            type: String,
+            required: false,
+        },
+        district: {
+            type: String,
+            required: false,
+        },
         city: {
+            type: String,
+            required: false,
+        },
+        region: {
             type: String,
             required: false,
         },
@@ -62,6 +82,10 @@ const UserSchema = new mongoose_1.Schema({
             required: false,
         },
         stateProvince: {
+            type: String,
+            required: false,
+        },
+        zip: {
             type: String,
             required: false,
         },
@@ -90,9 +114,28 @@ const UserSchema = new mongoose_1.Schema({
         type: Boolean,
         default: true,
     },
+    profileVisibility: {
+        type: String,
+        enum: ['private', 'connections', 'connections_groups', 'public'],
+        default: 'public',
+    },
     google: {
         type: Boolean,
         default: false,
+    },
+    notificationPreferences: {
+        push: {
+            type: Boolean,
+            default: true
+        },
+        email: {
+            type: Boolean,
+            default: true
+        },
+        app: {
+            type: Boolean,
+            default: true
+        }
     },
     pushTokens: [
         {

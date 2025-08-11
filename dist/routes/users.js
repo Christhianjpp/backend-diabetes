@@ -23,6 +23,17 @@ router.post("/", [
     (0, express_validator_1.check)("email").custom(db_validators_1.emailExists), // Valida si el correo ya existe
     middlewares_1.validateFields,
 ], users_1.createUser);
+router.patch("/:id/notification-preferences", [
+    middlewares_1.validateJWT,
+    (0, express_validator_1.check)("id", "ID is invalid").isMongoId(),
+    middlewares_1.validateFields,
+], users_1.updateNotificationPreferences);
+router.patch("/:id/profile-visibility", [
+    middlewares_1.validateJWT,
+    (0, express_validator_1.check)("id", "ID is invalid").isMongoId(),
+    (0, express_validator_1.check)("profileVisibility", "profileVisibility is required").not().isEmpty(),
+    middlewares_1.validateFields,
+], users_1.updateProfileVisibility);
 router.put("/:id", [
     middlewares_1.validateJWT,
     (0, express_validator_1.check)("id", "ID is invalid").isMongoId(),

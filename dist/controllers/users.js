@@ -23,7 +23,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteUser = exports.updateUser = exports.createUser = exports.capitalizeName = exports.getUser = exports.getUsers = void 0;
+exports.deleteUser = exports.updateNotificationPreferences = exports.updateProfileVisibility = exports.updateUser = exports.createUser = exports.capitalizeName = exports.getUser = exports.getUsers = void 0;
 const user_1 = __importDefault(require("../models/user"));
 const bcrypt_handle_1 = require("../helpers/bcrypt-handle");
 const error_handle_1 = __importDefault(require("../helpers/error-handle"));
@@ -103,6 +103,50 @@ const updateUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
     }
 });
 exports.updateUser = updateUser;
+const updateProfileVisibility = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    console.log('updateProfileVisibility');
+    try {
+        const { id } = req.params;
+        const { profileVisibility } = req.body;
+        console.log('profileVisibility', profileVisibility);
+        if (!['private', 'connections', 'connections_groups', 'public'].includes(profileVisibility)) {
+            return (0, error_handle_1.default)(res, 'Invalid profile visibility value');
+        }
+        const user = yield user_1.default.findByIdAndUpdate(id, { profileVisibility }, { new: true });
+        if (!user) {
+            return (0, error_handle_1.default)(res, `User: ${id}, does not exist`);
+        }
+        res.status(200).json({ user });
+    }
+    catch (error) {
+        (0, error_handle_1.default)(res, 'ERROR_UPDATE_PROFILE_VISIBILITY', error);
+    }
+});
+exports.updateProfileVisibility = updateProfileVisibility;
+const updateNotificationPreferences = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    console.log('updateNotificationPreferences');
+    try {
+        const { id } = req.params;
+        const { push, email, app } = req.body;
+        // Construimos dinámicamente solo los campos presentes
+        const fieldsToUpdate = {};
+        if (typeof push === 'boolean')
+            fieldsToUpdate['notificationPreferences.push'] = push;
+        if (typeof email === 'boolean')
+            fieldsToUpdate['notificationPreferences.email'] = email;
+        if (typeof app === 'boolean')
+            fieldsToUpdate['notificationPreferences.app'] = app;
+        const user = yield user_1.default.findByIdAndUpdate(id, fieldsToUpdate, { new: true });
+        if (!user) {
+            return (0, error_handle_1.default)(res, `User: ${id}, does not exist`);
+        }
+        res.status(200).json({ user });
+    }
+    catch (error) {
+        (0, error_handle_1.default)(res, 'ERROR_UPDATE_NOTIFICATION_PREFERENCES', error);
+    }
+});
+exports.updateNotificationPreferences = updateNotificationPreferences;
 const deleteUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;

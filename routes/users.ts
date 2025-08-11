@@ -7,6 +7,8 @@ import {
   getUser,
   getUsers,
   updateUser,
+  updateProfileVisibility,
+  updateNotificationPreferences,
 } from "../controllers/users";
 import {
   emailExists,
@@ -47,6 +49,27 @@ router.post(
   ],
 
   createUser
+);
+
+router.patch(
+  "/:id/notification-preferences",
+  [
+    validateJWT,
+    check("id", "ID is invalid").isMongoId(),
+    validateFields,
+  ],
+  updateNotificationPreferences
+);
+
+router.patch(
+  "/:id/profile-visibility",
+  [
+    validateJWT,
+    check("id", "ID is invalid").isMongoId(),
+    check("profileVisibility", "profileVisibility is required").not().isEmpty(),
+    validateFields,
+  ],
+  updateProfileVisibility
 );
 
 router.put(

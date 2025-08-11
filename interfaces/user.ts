@@ -12,14 +12,22 @@ export interface IHealthInfo {
 }
 
 export interface IAddress {
+  formattedAddress?: string;
+  street?: string;
+  streetNumber?: string;
+  district?: string;
   city?: string;
+  region?: string;
   country?: string;
   stateProvince?: string;
+  zip?: string;
   location?: {
     type: "Point";
     coordinates: [number, number];
   };
 }
+
+export type ProfileVisibility = 'private' | 'connections' | 'connections_groups' | 'public';
 
 export interface IUser extends Document {
   uid: string;
@@ -42,6 +50,11 @@ export interface IUser extends Document {
     device?: string;
     createdAt?: Date;
   }>;
+  notificationPreferences?: {
+    push?: boolean;
+    email?: boolean;
+    app?: boolean;
+  };
   postSaved: [Types.ObjectId];
   blockedBy: [Types.ObjectId];
   usersSaved: [Types.ObjectId];
@@ -52,6 +65,7 @@ export interface IUser extends Document {
     read: boolean;
   }>;
   violations: number;
+  profileVisibility?: ProfileVisibility;
   formRef?: Types.ObjectId;
   chats: [Types.ObjectId];
   healthInfo?: IHealthInfo;
