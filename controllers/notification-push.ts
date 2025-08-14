@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { Expo } from 'expo-server-sdk';
 import { PushNotificationService } from '../services/pushNotification';
 import User from '../models/user';
 
@@ -50,6 +51,13 @@ export const registerPushToken = async (req: Request, res: Response): Promise<vo
     if (!user) {
       console.log('❌ No authenticated user found');
       res.status(401).json({ message: 'User not authenticated' });
+      return;
+    }
+
+    // Validate token format for Expo
+    if (!Expo.isExpoPushToken(pushToken)) {
+      console.log('❌ Invalid Expo push token format');
+      res.status(400).json({ message: 'Invalid Expo push token' });
       return;
     }
 

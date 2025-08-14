@@ -11,7 +11,10 @@ export class PushNotificationService {
   private expo: Expo;
 
   constructor() {
-    this.expo = new Expo({ useFcmV1: true });
+    this.expo = new Expo({
+      accessToken: process.env.EXPO_ACCESS_TOKEN,
+      useFcmV1: true,
+    });
   }
 
   async sendNotification({ tokens, title, body, data = {} }: SendNotificationParams): Promise<{ done: boolean; tickets: ExpoPushTicket[][] }> {
