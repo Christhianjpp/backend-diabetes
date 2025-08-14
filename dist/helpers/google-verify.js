@@ -11,21 +11,27 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 const google_auth_library_1 = require("google-auth-library");
 const client = new google_auth_library_1.OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-function googleVerify(id_token) {
+function googleVerify(idToken) {
     return __awaiter(this, void 0, void 0, function* () {
-        const ticket = yield client.verifyIdToken({
-            idToken: id_token,
-            audience: process.env.GOOGLE_CLIENT_ID,
-            // Specify the CLIENT_ID of the app that accesses the backend
-            // Or, if multiple clients access the backend:
-            //[CLIENT_ID_1, CLIENT_ID_2, CLIENT_ID_3]
-        });
-        const { name, picture, email } = ticket.getPayload();
-        return {
-            name,
-            img: picture,
-            email,
-        };
+        try {
+            const ticket = yield client.verifyIdToken({
+                idToken: idToken,
+                audience: process.env.GOOGLE_CLIENT_ID,
+                // Specify the CLIENT_ID of the app that accesses the backend
+                // Or, if multiple clients access the backend:
+                //[CLIENT_ID_1, CLIENT_ID_2, CLIENT_ID_3]
+            });
+            const { name, picture, email } = ticket.getPayload();
+            return {
+                name,
+                img: picture,
+                email,
+            };
+        }
+        catch (error) {
+            console.log("error", error);
+            throw new Error("Error al verificar el token de Google");
+        }
     });
 }
 exports.default = googleVerify;

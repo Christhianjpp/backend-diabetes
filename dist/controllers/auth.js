@@ -85,7 +85,6 @@ const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             });
         }
         const token = yield (0, generate_jwt_1.default)(user.id);
-        console.log({ user });
         res.json({
             user,
             token,
@@ -100,9 +99,9 @@ const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
 });
 exports.login = login;
 const googleSignIn = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { id_token } = req.body;
+    const { idToken } = req.body;
     try {
-        const { name, img, email } = yield (0, google_verify_1.default)(id_token);
+        const { name, img, email } = yield (0, google_verify_1.default)(idToken);
         let user = yield user_1.default.findOne({ email });
         if (!user) {
             // creo usuario

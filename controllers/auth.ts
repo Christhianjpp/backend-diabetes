@@ -53,7 +53,7 @@ export const login = async (req: Request, res: Response) => {
       });
     }
     const token = await generatJWT(user.id);
-console.log({user});
+
 
     res.json({
       user,
@@ -69,9 +69,9 @@ console.log({user});
 
 
 export const googleSignIn = async (req: Request, res: Response) => {
-  const { id_token } = req.body;
+  const { idToken } = req.body;
   try {
-    const { name, img, email } = await googleVerify(id_token);
+    const { name, img, email } = await googleVerify(idToken);
 
     let user = await User.findOne({ email });
 

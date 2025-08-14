@@ -35,7 +35,7 @@ router.post(
 
 router.post(
   "/google",
-  [check("id_token", "id_token is requerired").not().isEmpty(), validateFields],
+  [check("idToken", "idToken is requerired").not().isEmpty(), validateFields],
   googleSignIn
 );
 

@@ -18,7 +18,7 @@ router.post("/login", [
     (0, express_validator_1.check)("password", "La contraseña debe tener entre 6 y 20 caracteres").isLength({ min: 6, max: 20 }),
     validate_fields_1.default,
 ], auth_1.login);
-router.post("/google", [(0, express_validator_1.check)("id_token", "id_token is requerired").not().isEmpty(), validate_fields_1.default], auth_1.googleSignIn);
+router.post("/google", [(0, express_validator_1.check)("idToken", "idToken is requerired").not().isEmpty(), validate_fields_1.default], auth_1.googleSignIn);
 router.post("/change-password", [
     middlewares_1.validateJWT,
     (0, express_validator_1.check)("currentPassword", "Current password is required").not().isEmpty(),
