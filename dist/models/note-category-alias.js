@@ -23,25 +23,20 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const express_validator_1 = require("express-validator");
-const error_handle_1 = __importStar(require("../helpers/error-handle"));
-const validateFields = (req, res, next) => {
-    console.log('validateFields', req.body);
-    const errors = (0, express_validator_1.validationResult)(req);
-    if (!errors.isEmpty()) {
-        // Extraer solo los mensajes de error
-        const errorArray = errors.array();
-        const errorMessages = errorArray.map(err => err.msg);
-        // Usar el primer mensaje o combinarlos si hay múltiples
-        const errorMessage = errorMessages.length === 1
-            ? errorMessages[0]
-            : errorMessages.join('. ');
-        return (0, error_handle_1.default)(res, errorMessage, {
-            statusCode: error_handle_1.HttpStatusCode.BAD_REQUEST,
-            logError: true
-        });
-    }
+exports.CategoryNoteAliasModel = void 0;
+const mongoose_1 = __importStar(require("mongoose"));
+const normalize_1 = require("../lib/normalize");
+const CategoryNoteAliasSchema = new mongoose_1.Schema({
+    categoryId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Category", required: true, index: true },
+    alias: { type: String, required: true, minlength: 2, maxlength: 28 },
+    normalized: { type: String, required: true, unique: true },
+}, { timestamps: true });
+CategoryNoteAliasSchema.pre("validate", function (next) {
+    if (this.alias)
+        this.normalized = (0, normalize_1.normalizeStr)(this.alias);
     next();
-};
-exports.default = validateFields;
-//# sourceMappingURL=validate-fields.js.map
+});
+CategoryNoteAliasSchema.index({ normalized: 1 }, { unique: true });
+CategoryNoteAliasSchema.index({ alias: "text" });
+exports.CategoryNoteAliasModel = mongoose_1.default.models.CategoryNoteAlias || mongoose_1.default.model("CategoryNoteAlias", CategoryNoteAliasSchema);
+//# sourceMappingURL=note-category-alias.js.map

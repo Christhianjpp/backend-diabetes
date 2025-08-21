@@ -1,10 +1,10 @@
 import { Request, Response } from "express";
-import User from "../models/user";
 import { IUser } from "../interfaces/user";
 import { encrypt } from "../helpers/bcrypt-handle";
 import handleError from "../helpers/error-handle";
 import generatJWT from "../helpers/generate-jwt";
 import { userName } from "../helpers/userCreateName";
+import User from "../models/user";
 
 export const getUsers = async (req: Request, res: Response) => {
   try {

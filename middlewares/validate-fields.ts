@@ -3,6 +3,7 @@ import { validationResult } from "express-validator";
 import handleError, { HttpStatusCode } from "../helpers/error-handle";
 
 const validateFields = (req: Request, res: Response, next: NextFunction) => {
+  console.log('validateFields', req.body);
   const errors = validationResult(req);
 
   if (!errors.isEmpty()) {

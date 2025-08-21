@@ -13,6 +13,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendNotificationToAllUsers = exports.sendNotificationToUser = exports.getAllUsersTokensOnly = exports.getAllUsersTokens = exports.getUserTokens = exports.removePushToken = exports.registerPushToken = exports.sendNotification = void 0;
+const expo_server_sdk_1 = require("expo-server-sdk");
 const pushNotification_1 = require("../services/pushNotification");
 const user_1 = __importDefault(require("../models/user"));
 const notificationService = new pushNotification_1.PushNotificationService();
@@ -57,6 +58,12 @@ const registerPushToken = (req, res) => __awaiter(void 0, void 0, void 0, functi
         if (!user) {
             console.log('❌ No authenticated user found');
             res.status(401).json({ message: 'User not authenticated' });
+            return;
+        }
+        // Validate token format for Expo
+        if (!expo_server_sdk_1.Expo.isExpoPushToken(pushToken)) {
+            console.log('❌ Invalid Expo push token format');
+            res.status(400).json({ message: 'Invalid Expo push token' });
             return;
         }
         // Initialize pushTokens array if it doesn't exist

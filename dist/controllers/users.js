@@ -24,11 +24,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteUser = exports.updateNotificationPreferences = exports.updateProfileVisibility = exports.updateUser = exports.createUser = exports.capitalizeName = exports.getUser = exports.getUsers = void 0;
-const user_1 = __importDefault(require("../models/user"));
 const bcrypt_handle_1 = require("../helpers/bcrypt-handle");
 const error_handle_1 = __importDefault(require("../helpers/error-handle"));
 const generate_jwt_1 = __importDefault(require("../helpers/generate-jwt"));
 const userCreateName_1 = require("../helpers/userCreateName");
+const user_1 = __importDefault(require("../models/user"));
 const getUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { desde = 0, limit = 5 } = req.params;

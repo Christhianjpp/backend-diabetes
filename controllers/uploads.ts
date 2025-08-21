@@ -8,7 +8,6 @@ import { v2 as cloudinary } from 'cloudinary'
 cloudinary.config(`${process.env.CLOUDINARY_URL}`);
 
 import subirArchivo from '../helpers/subir-archivo';
-
 import User from '../models/user';
 
 const cargarArchivo = async (req: Request, res: Response) => {

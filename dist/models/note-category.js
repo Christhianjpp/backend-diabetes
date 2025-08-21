@@ -23,25 +23,26 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const express_validator_1 = require("express-validator");
-const error_handle_1 = __importStar(require("../helpers/error-handle"));
-const validateFields = (req, res, next) => {
-    console.log('validateFields', req.body);
-    const errors = (0, express_validator_1.validationResult)(req);
-    if (!errors.isEmpty()) {
-        // Extraer solo los mensajes de error
-        const errorArray = errors.array();
-        const errorMessages = errorArray.map(err => err.msg);
-        // Usar el primer mensaje o combinarlos si hay múltiples
-        const errorMessage = errorMessages.length === 1
-            ? errorMessages[0]
-            : errorMessages.join('. ');
-        return (0, error_handle_1.default)(res, errorMessage, {
-            statusCode: error_handle_1.HttpStatusCode.BAD_REQUEST,
-            logError: true
-        });
+exports.CategoryNoteModel = void 0;
+const mongoose_1 = __importStar(require("mongoose"));
+const normalize_1 = require("../lib/normalize");
+const CategoryNoteSchema = new mongoose_1.Schema({
+    name: { type: String, required: true, minlength: 2, maxlength: 28 },
+    normalized: { type: String, required: true, index: true, unique: true },
+    slug: { type: String, required: true, unique: true },
+    emoji: String,
+    color: String,
+    createdBy: { type: mongoose_1.Schema.Types.ObjectId, ref: "User" },
+}, { timestamps: true });
+CategoryNoteSchema.pre("validate", function (next) {
+    if (this.name) {
+        this.normalized = (0, normalize_1.normalizeStr)(this.name);
+        this.slug = this.slug || (0, normalize_1.slugify)(this.name);
     }
     next();
-};
-exports.default = validateFields;
-//# sourceMappingURL=validate-fields.js.map
+});
+// Índices recomendados
+CategoryNoteSchema.index({ normalized: 1 }, { unique: true });
+CategoryNoteSchema.index({ name: "text" });
+exports.CategoryNoteModel = mongoose_1.default.models.CategoryNote || mongoose_1.default.model("CategoryNote", CategoryNoteSchema);
+//# sourceMappingURL=note-category.js.map

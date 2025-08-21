@@ -13,7 +13,10 @@ exports.PushNotificationService = void 0;
 const expo_server_sdk_1 = require("expo-server-sdk");
 class PushNotificationService {
     constructor() {
-        this.expo = new expo_server_sdk_1.Expo({ useFcmV1: true });
+        this.expo = new expo_server_sdk_1.Expo({
+            accessToken: process.env.EXPO_ACCESS_TOKEN,
+            useFcmV1: true,
+        });
     }
     sendNotification(_a) {
         return __awaiter(this, arguments, void 0, function* ({ tokens, title, body, data = {} }) {

@@ -6,6 +6,8 @@ import userRouter from "../routes/users";
 import userAuth from "../routes/auth";
 import userUploads from "../routes/uploads";
 import notificationPush from "../routes/notification-push";
+import notesRouter from "../routes/notes";
+import categoriesRouter from "../routes/categories";
 
 class Server {
   private app: Application;
@@ -47,6 +49,8 @@ class Server {
     this.app.use(this.apiPaths.auth, userAuth);
     this.app.use(this.apiPaths.uploads, userUploads);
     this.app.use(this.apiPaths.notifications, notificationPush);
+    this.app.use('/api/notes', notesRouter);
+    this.app.use('/api/categories', categoriesRouter);
   }
   listen() {
     this.app.listen(this.port, () => {
