@@ -15,6 +15,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.resolveProposal = resolveProposal;
 const note_1 = __importDefault(require("../models/note"));
 const note_category_proposa_1 = require("../models/note-category-proposa");
+const note_category_1 = require("../models/note-category");
+const normalize_1 = require("../lib/normalize");
 function resolveProposal(proposalId, action, targetCategoryId, reason) {
     return __awaiter(this, void 0, void 0, function* () {
         const p = yield note_category_proposa_1.CategoryNoteProposalModel.findById(proposalId);
@@ -25,6 +27,16 @@ function resolveProposal(proposalId, action, targetCategoryId, reason) {
             p.reason = reason || "No cumple criterios";
             yield p.save();
             return p;
+        }
+        // Si se aprueba sin target, creamos nueva categoría con el nombre propuesto
+        if (action === "approve" && !targetCategoryId) {
+            const created = yield note_category_1.CategoryNoteModel.create({
+                name: p.proposedName,
+                normalized: p.normalized,
+                slug: (0, normalize_1.slugify)(p.proposedName),
+                createdBy: p.createdBy
+            });
+            targetCategoryId = String(created._id);
         }
         if ((action === "approve" || action === "merge") && !targetCategoryId) {
             throw new Error("Falta targetCategoryId para aprobar/mergear");

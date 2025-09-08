@@ -5,7 +5,8 @@ const express_validator_1 = require("express-validator");
 const middlewares_1 = require("../middlewares");
 const notes_1 = require("../controllers/notes");
 const router = (0, express_1.Router)();
-router.get('/public', notes_1.getPublicNotes);
+router.get('/public/:desde/:limit', notes_1.getPublicNotes);
+router.get('/public', notes_1.getPublicNotes); // Fallback sin parámetros
 router.get('/', [middlewares_1.validateJWT], notes_1.getMyNotes);
 router.post('/', [
     middlewares_1.validateJWT,

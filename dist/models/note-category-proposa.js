@@ -30,7 +30,7 @@ const CategoryNoteProposalSchema = new mongoose_1.Schema({
     proposedName: { type: String, required: true, minlength: 2, maxlength: 28 },
     normalized: { type: String, required: true, index: true },
     status: { type: String, enum: ["pending", "approved", "rejected", "merged"], default: "pending", index: true },
-    approvedCategoryId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Category" },
+    approvedCategoryId: { type: mongoose_1.Schema.Types.ObjectId, ref: "CategoryNote" },
     reason: { type: String },
     createdBy: { type: mongoose_1.Schema.Types.ObjectId, ref: "User", required: true, index: true },
 }, { timestamps: true });

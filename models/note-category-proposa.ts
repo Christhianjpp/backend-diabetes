@@ -18,7 +18,7 @@ const CategoryNoteProposalSchema = new Schema<CategoryNoteProposal>({
   proposedName: { type: String, required: true, minlength: 2, maxlength: 28 },
   normalized: { type: String, required: true, index: true },
   status: { type: String, enum: ["pending","approved","rejected","merged"], default: "pending", index: true },
-  approvedCategoryId: { type: Schema.Types.ObjectId, ref: "Category" },
+  approvedCategoryId: { type: Schema.Types.ObjectId, ref: "CategoryNote" },
   reason: { type: String },
   createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
 }, { timestamps: true });

@@ -10,7 +10,7 @@ export interface CategoryNoteAlias {
     updatedAt: Date;
   }
   const CategoryNoteAliasSchema = new Schema<CategoryNoteAlias>({
-    categoryId: { type: Schema.Types.ObjectId, ref: "Category", required: true, index: true },
+    categoryId: { type: Schema.Types.ObjectId, ref: "CategoryNote", required: true, index: true },
     alias: { type: String, required: true, minlength: 2, maxlength: 28 },
     normalized: { type: String, required: true, unique: true },
   }, { timestamps: true });

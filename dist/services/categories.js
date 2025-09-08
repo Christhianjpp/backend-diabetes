@@ -27,21 +27,8 @@ function proposeCategory(proposedName, userId) {
                 proposedName, normalized, status: "merged", approvedCategoryId, createdBy: userId, reason: "Alias/duplicada"
             });
         }
-        // Heurística simple de “nombre seguro” para auto-aprobar (puedes ajustar)
-        const isSafeGeneric = normalized.length >= 3 && !/tienda|promo|gratis|http|www/.test(normalized);
-        if (isSafeGeneric) {
-            const cat = yield note_category_1.CategoryNoteModel.create({
-                name: proposedName.trim(),
-                normalized,
-                slug: (0, normalize_1.slugify)(proposedName),
-                createdBy: userId
-            });
-            yield note_category_proposa_1.CategoryNoteProposalModel.create({
-                proposedName, normalized, status: "approved", approvedCategoryId: cat._id, createdBy: userId
-            });
-            return cat;
-        }
-        // Dejar como pendiente (moderación manual o posterior)
+        // Dejar como pendiente (moderación por administrador). El usuario podrá
+        // usarla en sus notas mediante pendingCategoryId hasta que sea aprobada.
         return note_category_proposa_1.CategoryNoteProposalModel.create({
             proposedName, normalized, status: "pending", createdBy: userId
         });

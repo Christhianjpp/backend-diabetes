@@ -17,7 +17,8 @@ import {
 
 const router = Router();
 
-router.get('/public', getPublicNotes);
+router.get('/public/:desde/:limit', getPublicNotes);
+router.get('/public', getPublicNotes); // Fallback sin parámetros
 
 router.get('/', [validateJWT], getMyNotes);
 

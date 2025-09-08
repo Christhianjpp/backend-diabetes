@@ -15,30 +15,68 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteComment = exports.getComments = exports.addComment = exports.unlikeNote = exports.likeNote = exports.deleteNote = exports.updateNote = exports.getNoteById = exports.getPublicNotes = exports.getMyNotes = exports.createNote = void 0;
 const mongoose_1 = require("mongoose");
 const note_1 = __importDefault(require("../models/note"));
+const note_category_1 = require("../models/note-category");
+const note_category_proposa_1 = require("../models/note-category-proposa");
 const note_like_1 = __importDefault(require("../models/note-like"));
 const note_comment_1 = __importDefault(require("../models/note-comment"));
 const createNote = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const user = req.user;
-        const { title, liked, notes, category, tags, photos, place, product, visibility, remindAt, } = req.body;
+        const { title, liked, notes, categoryId, pendingCategoryId, tags, photos, place, product, visibility, remindAt, } = req.body;
         if (!title || typeof liked !== 'boolean' || !visibility) {
             res.status(400).json({ message: 'title, liked and visibility are required' });
             return;
         }
-        const newNote = yield note_1.default.create({
+        // Validaciones de categoría
+        if (categoryId && pendingCategoryId) {
+            res.status(400).json({ message: 'Provide only one of categoryId or pendingCategoryId' });
+            return;
+        }
+        const doc = {
             userId: user._id,
             title,
             liked,
             notes,
-            category,
             tags,
             photos,
             place,
             product,
             visibility,
             remindAt,
-        });
-        res.status(201).json(newNote);
+        };
+        if (categoryId) {
+            if (!mongoose_1.Types.ObjectId.isValid(categoryId)) {
+                res.status(400).json({ message: 'Invalid categoryId' });
+                return;
+            }
+            const categoryExists = yield note_category_1.CategoryNoteModel.findById(categoryId);
+            if (!categoryExists) {
+                res.status(400).json({ message: 'categoryId not found' });
+                return;
+            }
+            doc.categoryId = categoryId;
+        }
+        else if (pendingCategoryId) {
+            if (!mongoose_1.Types.ObjectId.isValid(pendingCategoryId)) {
+                res.status(400).json({ message: 'Invalid pendingCategoryId' });
+                return;
+            }
+            const proposal = yield note_category_proposa_1.CategoryNoteProposalModel.findOne({ _id: pendingCategoryId, status: 'pending' });
+            if (!proposal) {
+                res.status(400).json({ message: 'pendingCategoryId not found or not pending' });
+                return;
+            }
+            if (String(proposal.createdBy) !== String(user._id)) {
+                res.status(403).json({ message: 'You can only use your own pending category' });
+                return;
+            }
+            doc.pendingCategoryId = pendingCategoryId;
+        }
+        const newNote = yield note_1.default.create(doc);
+        const populatedNote = yield note_1.default.findById(newNote._id)
+            .populate('userId', 'name img')
+            .populate('categoryId', 'name emoji color');
+        res.status(201).json(populatedNote);
     }
     catch (error) {
         res.status(500).json({ message: error.message });
@@ -56,10 +94,23 @@ const getMyNotes = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
     }
 });
 exports.getMyNotes = getMyNotes;
-const getPublicNotes = (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const getPublicNotes = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const notes = yield note_1.default.find({ visibility: 'public' }).sort({ updatedAt: -1 });
-        res.json(notes);
+        // Usar params si están disponibles, sino valores por defecto
+        const { desde = 0, limit = 10 } = req.params;
+        const query = { visibility: 'public' };
+        console.log('Route params:', { desde, limit });
+        console.log('req.params:', req.params);
+        const [total, notes] = yield Promise.all([
+            note_1.default.countDocuments(query),
+            note_1.default.find(query)
+                .sort({ updatedAt: -1 })
+                .populate('userId', 'name img')
+                .populate('categoryId', 'name emoji color')
+                .skip(Number(desde))
+                .limit(Number(limit))
+        ]);
+        res.status(200).json({ total, notes });
     }
     catch (error) {
         res.status(500).json({ message: error.message });
@@ -74,7 +125,9 @@ const getNoteById = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             res.status(400).json({ message: 'Invalid id' });
             return;
         }
-        const note = yield note_1.default.findById(id);
+        const note = yield note_1.default.findById(id)
+            .populate('userId', 'name img')
+            .populate('categoryId', 'name emoji color');
         if (!note) {
             res.status(404).json({ message: 'Note not found' });
             return;
@@ -108,13 +161,62 @@ const updateNote = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             res.status(403).json({ message: 'Forbidden' });
             return;
         }
-        const updatable = ['title', 'liked', 'notes', 'category', 'tags', 'photos', 'place', 'product', 'visibility', 'remindAt'];
+        const updatable = ['title', 'liked', 'notes', 'tags', 'photos', 'place', 'product', 'visibility', 'remindAt'];
         const update = {};
         for (const key of updatable) {
             if (key in req.body)
                 update[key] = req.body[key];
         }
-        const updated = yield note_1.default.findByIdAndUpdate(id, update, { new: true });
+        const { categoryId, pendingCategoryId } = req.body;
+        if (categoryId !== undefined && pendingCategoryId !== undefined) {
+            res.status(400).json({ message: 'Provide only one of categoryId or pendingCategoryId' });
+            return;
+        }
+        if (categoryId !== undefined) {
+            if (categoryId === null || categoryId === '') {
+                update.$unset = Object.assign(Object.assign({}, (update.$unset || {})), { categoryId: '' });
+            }
+            else {
+                if (!mongoose_1.Types.ObjectId.isValid(categoryId)) {
+                    res.status(400).json({ message: 'Invalid categoryId' });
+                    return;
+                }
+                const categoryExists = yield note_category_1.CategoryNoteModel.findById(categoryId);
+                if (!categoryExists) {
+                    res.status(400).json({ message: 'categoryId not found' });
+                    return;
+                }
+                update.categoryId = categoryId;
+                if (update.$unset)
+                    delete update.$unset.pendingCategoryId;
+            }
+        }
+        if (pendingCategoryId !== undefined) {
+            if (pendingCategoryId === null || pendingCategoryId === '') {
+                update.$unset = Object.assign(Object.assign({}, (update.$unset || {})), { pendingCategoryId: '' });
+            }
+            else {
+                if (!mongoose_1.Types.ObjectId.isValid(pendingCategoryId)) {
+                    res.status(400).json({ message: 'Invalid pendingCategoryId' });
+                    return;
+                }
+                const proposal = yield note_category_proposa_1.CategoryNoteProposalModel.findOne({ _id: pendingCategoryId, status: 'pending' });
+                if (!proposal) {
+                    res.status(400).json({ message: 'pendingCategoryId not found or not pending' });
+                    return;
+                }
+                if (String(proposal.createdBy) !== String(user._id)) {
+                    res.status(403).json({ message: 'You can only use your own pending category' });
+                    return;
+                }
+                update.pendingCategoryId = pendingCategoryId;
+                if (update.$unset)
+                    delete update.$unset.categoryId;
+            }
+        }
+        const updated = yield note_1.default.findByIdAndUpdate(id, update, { new: true })
+            .populate('userId', 'name img')
+            .populate('categoryId', 'name emoji color');
         res.json(updated);
     }
     catch (error) {

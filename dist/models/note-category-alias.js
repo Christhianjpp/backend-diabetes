@@ -27,7 +27,7 @@ exports.CategoryNoteAliasModel = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
 const normalize_1 = require("../lib/normalize");
 const CategoryNoteAliasSchema = new mongoose_1.Schema({
-    categoryId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Category", required: true, index: true },
+    categoryId: { type: mongoose_1.Schema.Types.ObjectId, ref: "CategoryNote", required: true, index: true },
     alias: { type: String, required: true, minlength: 2, maxlength: 28 },
     normalized: { type: String, required: true, unique: true },
 }, { timestamps: true });

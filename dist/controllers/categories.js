@@ -9,12 +9,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPendingProposalsController = exports.getAllCategoriesController = exports.searchCategoriesController = exports.proposeCategoryController = void 0;
+exports.rejectProposalController = exports.mergeProposalController = exports.approveProposalController = exports.getMyPendingProposalsController = exports.getPendingProposalsController = exports.getAllCategoriesController = exports.searchCategoriesController = exports.proposeCategoryController = void 0;
 const mongoose_1 = require("mongoose");
 const note_category_1 = require("../models/note-category");
 const note_category_alias_1 = require("../models/note-category-alias");
 const note_category_proposa_1 = require("../models/note-category-proposa");
 const categories_1 = require("../services/categories");
+const proposals_1 = require("../services/proposals");
 const proposeCategoryController = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     console.log('proposeCategoryController');
     console.log('proposeCategoryController', req.body);
@@ -77,4 +78,63 @@ const getPendingProposalsController = (_req, res) => __awaiter(void 0, void 0, v
     }
 });
 exports.getPendingProposalsController = getPendingProposalsController;
+const getMyPendingProposalsController = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const user = req.user;
+        const items = yield note_category_proposa_1.CategoryNoteProposalModel.find({ status: 'pending', createdBy: user._id }).sort({ createdAt: -1 });
+        res.json(items);
+    }
+    catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+exports.getMyPendingProposalsController = getMyPendingProposalsController;
+const approveProposalController = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { id } = req.params;
+        const { targetCategoryId, reason } = req.body;
+        if (!mongoose_1.Types.ObjectId.isValid(id)) {
+            res.status(400).json({ message: 'Invalid id' });
+            return;
+        }
+        const result = yield (0, proposals_1.resolveProposal)(id, 'approve', targetCategoryId, reason);
+        res.json(result);
+    }
+    catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+exports.approveProposalController = approveProposalController;
+const mergeProposalController = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { id } = req.params;
+        const { targetCategoryId, reason } = req.body;
+        if (!mongoose_1.Types.ObjectId.isValid(id) || !targetCategoryId || !mongoose_1.Types.ObjectId.isValid(targetCategoryId)) {
+            res.status(400).json({ message: 'Invalid id or targetCategoryId' });
+            return;
+        }
+        const result = yield (0, proposals_1.resolveProposal)(id, 'merge', targetCategoryId, reason);
+        res.json(result);
+    }
+    catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+exports.mergeProposalController = mergeProposalController;
+const rejectProposalController = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { id } = req.params;
+        const { reason } = req.body;
+        if (!mongoose_1.Types.ObjectId.isValid(id)) {
+            res.status(400).json({ message: 'Invalid id' });
+            return;
+        }
+        const result = yield (0, proposals_1.resolveProposal)(id, 'reject', undefined, reason);
+        res.json(result);
+    }
+    catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+exports.rejectProposalController = rejectProposalController;
 //# sourceMappingURL=categories.js.map

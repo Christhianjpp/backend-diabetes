@@ -32,7 +32,7 @@ const NoteSchema = new Schema<NoteDocument>({
   title: { type: String, required: true },
   liked: { type: Boolean, required: true },
   notes: { type: String },
-  categoryId: { type: Schema.Types.ObjectId, ref: "Category", index: true },
+  categoryId: { type: Schema.Types.ObjectId, ref: "CategoryNote", index: true },
   pendingCategoryId: { type: Schema.Types.ObjectId, ref: "CategoryProposal", index: true },  tags: { type: [String], default: [] },
   photos: { type: [String], default: [] },
   place: {
