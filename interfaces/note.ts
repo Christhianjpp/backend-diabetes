@@ -16,13 +16,14 @@ export interface ProductInfo {
 export interface PublicStats {
   likes: number;
   comments: number;
+  views?: number;  // Nuevo: contador de vistas
 }
 
 export interface Item {
   id: string;
   userId: string;
   title: string;
-  liked: boolean;
+  isImportant: boolean;  // Renombrado de 'liked'
   notes?: string;
   category?: NoteCategory;
   tags?: string[];
@@ -33,10 +34,13 @@ export interface Item {
   remindAt?: number;
   createdAt: number;
   updatedAt: number;
-  publicStats?: PublicStats;
+  publicStats: PublicStats;  // Requerido (no opcional)
+  
+  // Campo agregado por consultas con lookup
+  isLikedByCurrentUser?: boolean;
 }
 
-export interface Like { id: string; itemId: string; userId: string; createdAt: number; }
+export interface Like { id: string; noteId: string; userId: string; createdAt: number; }
 export interface Comment { id: string; itemId: string; userId: string; text: string; createdAt: number; }
 
 

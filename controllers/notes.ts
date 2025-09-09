@@ -1,17 +1,23 @@
 import { Request, Response } from 'express';
-import { Types } from 'mongoose';
+import { Types, startSession } from 'mongoose';
 import Note from '../models/note';
 import { CategoryNoteModel } from '../models/note-category';
 import { CategoryNoteProposalModel } from '../models/note-category-proposa';
 import NoteLike from '../models/note-like';
 import NoteComment from '../models/note-comment';
+import { 
+  getPublicNotesWithLikesPipeline, 
+  getMyNotesWithLikesPipeline,
+  countPublicNotesPipeline 
+} from '../helpers/note-aggregations';
+import { mapAggregationResultsToResponse } from '../helpers/note-response-mapper';
 
 export const createNote = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as any;
     const {
       title,
-      liked,
+      isImportant = false,  // Renombrado de 'liked'
       notes,
       categoryId,
       pendingCategoryId,
@@ -22,11 +28,11 @@ export const createNote = async (req: Request, res: Response): Promise<void> => 
       visibility,
       remindAt,
     } = req.body as {
-      title: string; liked: boolean; notes?: string; categoryId?: string; pendingCategoryId?: string; tags?: string[]; photos?: string[]; place?: any; product?: any; visibility: 'private'|'public'; remindAt?: number;
+      title: string; isImportant?: boolean; notes?: string; categoryId?: string; pendingCategoryId?: string; tags?: string[]; photos?: string[]; place?: any; product?: any; visibility: 'private'|'public'; remindAt?: number;
     };
 
-    if (!title || typeof liked !== 'boolean' || !visibility) {
-      res.status(400).json({ message: 'title, liked and visibility are required' });
+    if (!title || !visibility) {
+      res.status(400).json({ message: 'title and visibility are required' });
       return;
     }
 
@@ -39,7 +45,7 @@ export const createNote = async (req: Request, res: Response): Promise<void> => 
     const doc: any = {
       userId: user._id,
       title,
-      liked,
+      isImportant,
       notes,
       tags,
       photos,
@@ -91,33 +97,48 @@ export const createNote = async (req: Request, res: Response): Promise<void> => 
 export const getMyNotes = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user as any;
-    const notes = await Note.find({ userId: user._id }).sort({ updatedAt: -1 });
-    res.json(notes);
+    
+    // Usar agregación para obtener notas con estado de like
+    const notes = await Note.aggregate(getMyNotesWithLikesPipeline(user._id.toString()));
+    
+    // Mapear resultados de agregación al formato de respuesta
+    const mappedNotes = mapAggregationResultsToResponse(notes);
+    
+    res.json(mappedNotes);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
 };
 
 export const getPublicNotes = async (req: Request, res: Response): Promise<void> => {
-  try {
-    // Usar params si están disponibles, sino valores por defecto
-    const { desde = 0, limit = 10 } = req.params;
-    const query = { visibility: 'public' };
-    
-    console.log('Route params:', { desde, limit });
-    console.log('req.params:', req.params);
 
-    const [total, notes] = await Promise.all([
-      Note.countDocuments(query),
-      Note.find(query)
-        .sort({ updatedAt: -1 })
-        .populate('userId', 'name img')
-        .populate('categoryId', 'name emoji color')
-        .skip(Number(desde))
-        .limit(Number(limit))
+  try {
+    const user = req.user as any;
+    const { desde = 0, limit = 10 } = req.params;
+
+    if (!user || !user._id) {
+      res.status(401).json({ message: 'User not authenticated' });
+      return;
+    }
+
+    // Usar agregación para obtener notas con estado de like del usuario actual
+    const [totalResult, notes] = await Promise.all([
+      Note.aggregate(countPublicNotesPipeline()),
+      Note.aggregate(getPublicNotesWithLikesPipeline(
+        user._id.toString(), 
+        Number(desde), 
+        Number(limit)
+      ))
     ]);
 
-    res.status(200).json({ total, notes });
+    const total = totalResult[0]?.total || 0;
+    
+    // Mapear resultados de agregación al formato de respuesta
+    const mappedNotes = mapAggregationResultsToResponse(notes);
+    
+    console.log('📤 Sending response with notes count:', mappedNotes.length);
+    
+    res.status(200).json({ total, notes: mappedNotes });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -243,7 +264,7 @@ export const deleteNote = async (req: Request, res: Response): Promise<void> => 
       return;
     }
     await Note.deleteOne({ _id: id });
-    await NoteLike.deleteMany({ itemId: id });
+    await NoteLike.deleteMany({ noteId: id });
     await NoteComment.deleteMany({ itemId: id });
     res.json({ message: 'Note deleted' });
   } catch (error: any) {
@@ -252,49 +273,113 @@ export const deleteNote = async (req: Request, res: Response): Promise<void> => 
 };
 
 export const likeNote = async (req: Request, res: Response): Promise<void> => {
+  const session = await startSession();
+  
   try {
     const user = req.user as any;
     const { id } = req.params;
+    
+    console.log('❤️  likeNote called:', {
+      noteId: id,
+      userId: user._id.toString(),
+      userType: typeof user._id
+    });
+    
     if (!Types.ObjectId.isValid(id)) {
       res.status(400).json({ message: 'Invalid id' });
       return;
     }
-    const note = await Note.findById(id);
-    if (!note) {
-      res.status(404).json({ message: 'Note not found' });
-      return;
-    }
-    try {
-      await NoteLike.create({ itemId: id as any, userId: user._id });
-      await Note.updateOne({ _id: id }, { $inc: { 'publicStats.likes': 1 } });
-      res.json({ message: 'Liked' });
-    } catch (err: any) {
-      if (err && err.code === 11000) {
-        res.status(200).json({ message: 'Already liked' });
-        return;
+
+    await session.withTransaction(async () => {
+      // Verificar que la nota existe
+      const note = await Note.findById(id).session(session);
+      if (!note) {
+        throw new Error('Note not found');
       }
-      throw err;
-    }
+
+      // Verificar si ya tiene like (para evitar duplicados)
+      const existingLike = await NoteLike.findOne({ 
+        noteId: id, 
+        userId: user._id 
+      }).session(session);
+      
+      if (existingLike) {
+        throw new Error('Already liked');
+      }
+
+      // Crear like y actualizar contador atómicamente
+      console.log('✅ Creating like and updating counter...');
+      await NoteLike.create([{ noteId: id, userId: user._id }], { session });
+      const updateResult = await Note.updateOne(
+        { _id: id }, 
+        { $inc: { 'publicStats.likes': 1 } },
+        { session }
+      );
+      console.log('📊 Counter update result:', updateResult);
+    });
+
+    res.json({ message: 'Liked' });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    if (error.message === 'Note not found') {
+      res.status(404).json({ message: 'Note not found' });
+    } else if (error.message === 'Already liked') {
+      res.status(200).json({ message: 'Already liked' });
+    } else {
+      res.status(500).json({ message: error.message });
+    }
+  } finally {
+    await session.endSession();
   }
 };
 
 export const unlikeNote = async (req: Request, res: Response): Promise<void> => {
+  const session = await startSession();
+  
   try {
     const user = (req as any).user;
     const { id } = req.params;
+    
     if (!Types.ObjectId.isValid(id)) {
       res.status(400).json({ message: 'Invalid id' });
       return;
     }
-    const removed = await NoteLike.deleteOne({ itemId: id, userId: user._id });
-    if (removed.deletedCount) {
-      await Note.updateOne({ _id: id }, { $inc: { 'publicStats.likes': -1 } });
-    }
-    res.json({ message: removed.deletedCount ? 'Unliked' : 'Not liked' });
+
+    let wasRemoved = false;
+
+    await session.withTransaction(async () => {
+      // Verificar que la nota existe
+      const note = await Note.findById(id).session(session);
+      if (!note) {
+        throw new Error('Note not found');
+      }
+
+      // Eliminar like si existe
+      const removed = await NoteLike.deleteOne({ 
+        noteId: id, 
+        userId: user._id 
+      }).session(session);
+      
+      wasRemoved = removed.deletedCount > 0;
+      
+      if (wasRemoved) {
+        // Decrementar contador solo si se eliminó un like
+        await Note.updateOne(
+          { _id: id }, 
+          { $inc: { 'publicStats.likes': -1 } },
+          { session }
+        );
+      }
+    });
+
+    res.json({ message: wasRemoved ? 'Unliked' : 'Not liked' });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    if (error.message === 'Note not found') {
+      res.status(404).json({ message: 'Note not found' });
+    } else {
+      res.status(500).json({ message: error.message });
+    }
+  } finally {
+    await session.endSession();
   }
 };
 

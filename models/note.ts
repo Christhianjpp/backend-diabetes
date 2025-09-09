@@ -4,7 +4,7 @@ import { NoteCategory, NoteVisibility, PublicStats } from '../interfaces/note';
 interface NoteDocument {
   userId: Types.ObjectId;
   title: string;
-  liked: boolean;
+  isImportant: boolean;  // Renombrado: campo para el creador (anteriormente 'liked')
   notes?: string;
   categoryId?: Types.ObjectId;          // categoría aprobada
   pendingCategoryId?: Types.ObjectId;   // referencia a propuesta
@@ -22,18 +22,22 @@ interface NoteDocument {
   };
   visibility: NoteVisibility;
   remindAt?: number;
-  publicStats?: PublicStats;
+  publicStats: PublicStats;  // Requerido (no opcional)
   createdAt?: Date;
   updatedAt?: Date;
+  
+  // Campo virtual agregado por consultas con agregación
+  isLikedByCurrentUser?: boolean;
 }
 
 const NoteSchema = new Schema<NoteDocument>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   title: { type: String, required: true },
-  liked: { type: Boolean, required: true },
+  isImportant: { type: Boolean, required: true, default: false },  // Renombrado de 'liked'
   notes: { type: String },
   categoryId: { type: Schema.Types.ObjectId, ref: "CategoryNote", index: true },
-  pendingCategoryId: { type: Schema.Types.ObjectId, ref: "CategoryProposal", index: true },  tags: { type: [String], default: [] },
+  pendingCategoryId: { type: Schema.Types.ObjectId, ref: "CategoryProposal", index: true },
+  tags: { type: [String], default: [] },
   photos: { type: [String], default: [] },
   place: {
     name: { type: String },
@@ -48,8 +52,9 @@ const NoteSchema = new Schema<NoteDocument>({
   visibility: { type: String, enum: ['private', 'public'], default: 'private', index: true },
   remindAt: { type: Number },
   publicStats: {
-    likes: { type: Number, default: 0 },
-    comments: { type: Number, default: 0 },
+    likes: { type: Number, default: 0, min: 0 },      // Agregado validación mínima
+    comments: { type: Number, default: 0, min: 0 },   // Agregado validación mínima
+    views: { type: Number, default: 0, min: 0 },      // Nuevo: contador de vistas
   },
 }, { timestamps: true, versionKey: false });
 
@@ -63,7 +68,7 @@ NoteSchema.pre("validate", function(next) {
 });
 
 NoteSchema.methods.toJSON = function () {
-  const { _id, createdAt, updatedAt, ...note } = (this as any).toObject();
+  const { _id, createdAt, updatedAt, ...note } = (this as any).toObject({ virtuals: true });
   return {
     id: _id,
     ...note,

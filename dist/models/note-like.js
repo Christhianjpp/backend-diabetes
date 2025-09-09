@@ -13,10 +13,13 @@ var __rest = (this && this.__rest) || function (s, e) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = require("mongoose");
 const NoteLikeSchema = new mongoose_1.Schema({
-    itemId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Note', required: true, index: true },
+    noteId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Note', required: true, index: true },
     userId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
 }, { timestamps: { createdAt: true, updatedAt: false }, versionKey: false });
-NoteLikeSchema.index({ itemId: 1, userId: 1 }, { unique: true });
+// Índice compuesto único para prevenir likes duplicados
+NoteLikeSchema.index({ noteId: 1, userId: 1 }, { unique: true });
+// Índice para consultas por usuario (obtener likes del usuario)
+NoteLikeSchema.index({ userId: 1, createdAt: -1 });
 NoteLikeSchema.methods.toJSON = function () {
     const _a = this.toObject(), { _id, createdAt } = _a, doc = __rest(_a, ["_id", "createdAt"]);
     return Object.assign(Object.assign({ id: _id }, doc), { createdAt: createdAt ? new Date(createdAt).getTime() : undefined });

@@ -5,13 +5,13 @@ const express_validator_1 = require("express-validator");
 const middlewares_1 = require("../middlewares");
 const notes_1 = require("../controllers/notes");
 const router = (0, express_1.Router)();
-router.get('/public/:desde/:limit', notes_1.getPublicNotes);
-router.get('/public', notes_1.getPublicNotes); // Fallback sin parámetros
+router.get('/public/:desde/:limit', [middlewares_1.validateJWT], notes_1.getPublicNotes);
+router.get('/public', [middlewares_1.validateJWT], notes_1.getPublicNotes); // Fallback sin parámetros
 router.get('/', [middlewares_1.validateJWT], notes_1.getMyNotes);
 router.post('/', [
     middlewares_1.validateJWT,
     (0, express_validator_1.check)('title', 'title is required').not().isEmpty(),
-    (0, express_validator_1.check)('liked', 'liked must be boolean').isBoolean(),
+    (0, express_validator_1.check)('isImportant', 'isImportant must be boolean').optional().isBoolean(),
     (0, express_validator_1.check)('visibility', 'visibility must be private|public').isIn(['private', 'public']),
     middlewares_1.validateFields,
 ], notes_1.createNote);

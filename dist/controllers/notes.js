@@ -19,12 +19,15 @@ const note_category_1 = require("../models/note-category");
 const note_category_proposa_1 = require("../models/note-category-proposa");
 const note_like_1 = __importDefault(require("../models/note-like"));
 const note_comment_1 = __importDefault(require("../models/note-comment"));
+const note_aggregations_1 = require("../helpers/note-aggregations");
+const note_response_mapper_1 = require("../helpers/note-response-mapper");
 const createNote = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const user = req.user;
-        const { title, liked, notes, categoryId, pendingCategoryId, tags, photos, place, product, visibility, remindAt, } = req.body;
-        if (!title || typeof liked !== 'boolean' || !visibility) {
-            res.status(400).json({ message: 'title, liked and visibility are required' });
+        const { title, isImportant = false, // Renombrado de 'liked'
+        notes, categoryId, pendingCategoryId, tags, photos, place, product, visibility, remindAt, } = req.body;
+        if (!title || !visibility) {
+            res.status(400).json({ message: 'title and visibility are required' });
             return;
         }
         // Validaciones de categoría
@@ -35,7 +38,7 @@ const createNote = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         const doc = {
             userId: user._id,
             title,
-            liked,
+            isImportant,
             notes,
             tags,
             photos,
@@ -86,8 +89,11 @@ exports.createNote = createNote;
 const getMyNotes = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const user = req.user;
-        const notes = yield note_1.default.find({ userId: user._id }).sort({ updatedAt: -1 });
-        res.json(notes);
+        // Usar agregación para obtener notas con estado de like
+        const notes = yield note_1.default.aggregate((0, note_aggregations_1.getMyNotesWithLikesPipeline)(user._id.toString()));
+        // Mapear resultados de agregación al formato de respuesta
+        const mappedNotes = (0, note_response_mapper_1.mapAggregationResultsToResponse)(notes);
+        res.json(mappedNotes);
     }
     catch (error) {
         res.status(500).json({ message: error.message });
@@ -95,22 +101,24 @@ const getMyNotes = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
 });
 exports.getMyNotes = getMyNotes;
 const getPublicNotes = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
-        // Usar params si están disponibles, sino valores por defecto
+        const user = req.user;
         const { desde = 0, limit = 10 } = req.params;
-        const query = { visibility: 'public' };
-        console.log('Route params:', { desde, limit });
-        console.log('req.params:', req.params);
-        const [total, notes] = yield Promise.all([
-            note_1.default.countDocuments(query),
-            note_1.default.find(query)
-                .sort({ updatedAt: -1 })
-                .populate('userId', 'name img')
-                .populate('categoryId', 'name emoji color')
-                .skip(Number(desde))
-                .limit(Number(limit))
+        if (!user || !user._id) {
+            res.status(401).json({ message: 'User not authenticated' });
+            return;
+        }
+        // Usar agregación para obtener notas con estado de like del usuario actual
+        const [totalResult, notes] = yield Promise.all([
+            note_1.default.aggregate((0, note_aggregations_1.countPublicNotesPipeline)()),
+            note_1.default.aggregate((0, note_aggregations_1.getPublicNotesWithLikesPipeline)(user._id.toString(), Number(desde), Number(limit)))
         ]);
-        res.status(200).json({ total, notes });
+        const total = ((_a = totalResult[0]) === null || _a === void 0 ? void 0 : _a.total) || 0;
+        // Mapear resultados de agregación al formato de respuesta
+        const mappedNotes = (0, note_response_mapper_1.mapAggregationResultsToResponse)(notes);
+        console.log('📤 Sending response with notes count:', mappedNotes.length);
+        res.status(200).json({ total, notes: mappedNotes });
     }
     catch (error) {
         res.status(500).json({ message: error.message });
@@ -242,7 +250,7 @@ const deleteNote = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             return;
         }
         yield note_1.default.deleteOne({ _id: id });
-        yield note_like_1.default.deleteMany({ itemId: id });
+        yield note_like_1.default.deleteMany({ noteId: id });
         yield note_comment_1.default.deleteMany({ itemId: id });
         res.json({ message: 'Note deleted' });
     }
@@ -252,37 +260,59 @@ const deleteNote = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
 });
 exports.deleteNote = deleteNote;
 const likeNote = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const session = yield (0, mongoose_1.startSession)();
     try {
         const user = req.user;
         const { id } = req.params;
+        console.log('❤️  likeNote called:', {
+            noteId: id,
+            userId: user._id.toString(),
+            userType: typeof user._id
+        });
         if (!mongoose_1.Types.ObjectId.isValid(id)) {
             res.status(400).json({ message: 'Invalid id' });
             return;
         }
-        const note = yield note_1.default.findById(id);
-        if (!note) {
-            res.status(404).json({ message: 'Note not found' });
-            return;
-        }
-        try {
-            yield note_like_1.default.create({ itemId: id, userId: user._id });
-            yield note_1.default.updateOne({ _id: id }, { $inc: { 'publicStats.likes': 1 } });
-            res.json({ message: 'Liked' });
-        }
-        catch (err) {
-            if (err && err.code === 11000) {
-                res.status(200).json({ message: 'Already liked' });
-                return;
+        yield session.withTransaction(() => __awaiter(void 0, void 0, void 0, function* () {
+            // Verificar que la nota existe
+            const note = yield note_1.default.findById(id).session(session);
+            if (!note) {
+                throw new Error('Note not found');
             }
-            throw err;
-        }
+            // Verificar si ya tiene like (para evitar duplicados)
+            const existingLike = yield note_like_1.default.findOne({
+                noteId: id,
+                userId: user._id
+            }).session(session);
+            if (existingLike) {
+                throw new Error('Already liked');
+            }
+            // Crear like y actualizar contador atómicamente
+            console.log('✅ Creating like and updating counter...');
+            yield note_like_1.default.create([{ noteId: id, userId: user._id }], { session });
+            const updateResult = yield note_1.default.updateOne({ _id: id }, { $inc: { 'publicStats.likes': 1 } }, { session });
+            console.log('📊 Counter update result:', updateResult);
+        }));
+        res.json({ message: 'Liked' });
     }
     catch (error) {
-        res.status(500).json({ message: error.message });
+        if (error.message === 'Note not found') {
+            res.status(404).json({ message: 'Note not found' });
+        }
+        else if (error.message === 'Already liked') {
+            res.status(200).json({ message: 'Already liked' });
+        }
+        else {
+            res.status(500).json({ message: error.message });
+        }
+    }
+    finally {
+        yield session.endSession();
     }
 });
 exports.likeNote = likeNote;
 const unlikeNote = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const session = yield (0, mongoose_1.startSession)();
     try {
         const user = req.user;
         const { id } = req.params;
@@ -290,14 +320,36 @@ const unlikeNote = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             res.status(400).json({ message: 'Invalid id' });
             return;
         }
-        const removed = yield note_like_1.default.deleteOne({ itemId: id, userId: user._id });
-        if (removed.deletedCount) {
-            yield note_1.default.updateOne({ _id: id }, { $inc: { 'publicStats.likes': -1 } });
-        }
-        res.json({ message: removed.deletedCount ? 'Unliked' : 'Not liked' });
+        let wasRemoved = false;
+        yield session.withTransaction(() => __awaiter(void 0, void 0, void 0, function* () {
+            // Verificar que la nota existe
+            const note = yield note_1.default.findById(id).session(session);
+            if (!note) {
+                throw new Error('Note not found');
+            }
+            // Eliminar like si existe
+            const removed = yield note_like_1.default.deleteOne({
+                noteId: id,
+                userId: user._id
+            }).session(session);
+            wasRemoved = removed.deletedCount > 0;
+            if (wasRemoved) {
+                // Decrementar contador solo si se eliminó un like
+                yield note_1.default.updateOne({ _id: id }, { $inc: { 'publicStats.likes': -1 } }, { session });
+            }
+        }));
+        res.json({ message: wasRemoved ? 'Unliked' : 'Not liked' });
     }
     catch (error) {
-        res.status(500).json({ message: error.message });
+        if (error.message === 'Note not found') {
+            res.status(404).json({ message: 'Note not found' });
+        }
+        else {
+            res.status(500).json({ message: error.message });
+        }
+    }
+    finally {
+        yield session.endSession();
     }
 });
 exports.unlikeNote = unlikeNote;

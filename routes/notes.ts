@@ -17,8 +17,8 @@ import {
 
 const router = Router();
 
-router.get('/public/:desde/:limit', getPublicNotes);
-router.get('/public', getPublicNotes); // Fallback sin parámetros
+router.get('/public/:desde/:limit', [validateJWT], getPublicNotes);
+router.get('/public', [validateJWT], getPublicNotes); // Fallback sin parámetros
 
 router.get('/', [validateJWT], getMyNotes);
 
@@ -27,7 +27,7 @@ router.post(
   [
     validateJWT,
     check('title', 'title is required').not().isEmpty(),
-    check('liked', 'liked must be boolean').isBoolean(),
+    check('isImportant', 'isImportant must be boolean').optional().isBoolean(),
     check('visibility', 'visibility must be private|public').isIn(['private', 'public']),
     validateFields,
   ],

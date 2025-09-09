@@ -15,10 +15,11 @@ const mongoose_1 = require("mongoose");
 const NoteSchema = new mongoose_1.Schema({
     userId: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     title: { type: String, required: true },
-    liked: { type: Boolean, required: true },
+    isImportant: { type: Boolean, required: true, default: false }, // Renombrado de 'liked'
     notes: { type: String },
     categoryId: { type: mongoose_1.Schema.Types.ObjectId, ref: "CategoryNote", index: true },
-    pendingCategoryId: { type: mongoose_1.Schema.Types.ObjectId, ref: "CategoryProposal", index: true }, tags: { type: [String], default: [] },
+    pendingCategoryId: { type: mongoose_1.Schema.Types.ObjectId, ref: "CategoryProposal", index: true },
+    tags: { type: [String], default: [] },
     photos: { type: [String], default: [] },
     place: {
         name: { type: String },
@@ -33,8 +34,9 @@ const NoteSchema = new mongoose_1.Schema({
     visibility: { type: String, enum: ['private', 'public'], default: 'private', index: true },
     remindAt: { type: Number },
     publicStats: {
-        likes: { type: Number, default: 0 },
-        comments: { type: Number, default: 0 },
+        likes: { type: Number, default: 0, min: 0 }, // Agregado validación mínima
+        comments: { type: Number, default: 0, min: 0 }, // Agregado validación mínima
+        views: { type: Number, default: 0, min: 0 }, // Nuevo: contador de vistas
     },
 }, { timestamps: true, versionKey: false });
 // Reglas de consistencia básicas (lógica de app valida más):
@@ -46,7 +48,7 @@ NoteSchema.pre("validate", function (next) {
     next();
 });
 NoteSchema.methods.toJSON = function () {
-    const _a = this.toObject(), { _id, createdAt, updatedAt } = _a, note = __rest(_a, ["_id", "createdAt", "updatedAt"]);
+    const _a = this.toObject({ virtuals: true }), { _id, createdAt, updatedAt } = _a, note = __rest(_a, ["_id", "createdAt", "updatedAt"]);
     return Object.assign(Object.assign({ id: _id }, note), { createdAt: createdAt ? new Date(createdAt).getTime() : undefined, updatedAt: updatedAt ? new Date(updatedAt).getTime() : undefined });
 };
 exports.default = (0, mongoose_1.model)('Note', NoteSchema);

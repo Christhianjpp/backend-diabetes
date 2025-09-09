@@ -1,17 +1,21 @@
 import { Schema, model, Types } from 'mongoose';
 
 interface NoteLikeDocument {
-  itemId: Types.ObjectId;
+  noteId: Types.ObjectId;  // Renombrado de 'itemId' para mayor claridad
   userId: Types.ObjectId;
   createdAt?: Date;
 }
 
 const NoteLikeSchema = new Schema<NoteLikeDocument>({
-  itemId: { type: Schema.Types.ObjectId, ref: 'Note', required: true, index: true },
+  noteId: { type: Schema.Types.ObjectId, ref: 'Note', required: true, index: true },
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
 }, { timestamps: { createdAt: true, updatedAt: false }, versionKey: false });
 
-NoteLikeSchema.index({ itemId: 1, userId: 1 }, { unique: true });
+// Índice compuesto único para prevenir likes duplicados
+NoteLikeSchema.index({ noteId: 1, userId: 1 }, { unique: true });
+
+// Índice para consultas por usuario (obtener likes del usuario)
+NoteLikeSchema.index({ userId: 1, createdAt: -1 });
 
 NoteLikeSchema.methods.toJSON = function () {
   const { _id, createdAt, ...doc } = (this as any).toObject();

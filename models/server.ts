@@ -8,6 +8,7 @@ import userUploads from "../routes/uploads";
 import notificationPush from "../routes/notification-push";
 import notesRouter from "../routes/notes";
 import categoriesRouter from "../routes/categories";
+import debugRouter from "../routes/debug";
 
 class Server {
   private app: Application;
@@ -51,6 +52,7 @@ class Server {
     this.app.use(this.apiPaths.notifications, notificationPush);
     this.app.use('/api/notes', notesRouter);
     this.app.use('/api/categories', categoriesRouter);
+    this.app.use('/api/debug', debugRouter);  // Rutas de debug temporales
   }
   listen() {
     this.app.listen(this.port, () => {

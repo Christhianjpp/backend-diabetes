@@ -22,6 +22,7 @@ const uploads_1 = __importDefault(require("../routes/uploads"));
 const notification_push_1 = __importDefault(require("../routes/notification-push"));
 const notes_1 = __importDefault(require("../routes/notes"));
 const categories_1 = __importDefault(require("../routes/categories"));
+const debug_1 = __importDefault(require("../routes/debug"));
 class Server {
     constructor() {
         this.apiPaths = {
@@ -58,6 +59,7 @@ class Server {
         this.app.use(this.apiPaths.notifications, notification_push_1.default);
         this.app.use('/api/notes', notes_1.default);
         this.app.use('/api/categories', categories_1.default);
+        this.app.use('/api/debug', debug_1.default); // Rutas de debug temporales
     }
     listen() {
         this.app.listen(this.port, () => {
