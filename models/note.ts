@@ -55,6 +55,7 @@ const NoteSchema = new Schema<NoteDocument>({
     likes: { type: Number, default: 0, min: 0 },      // Agregado validación mínima
     comments: { type: Number, default: 0, min: 0 },   // Agregado validación mínima
     views: { type: Number, default: 0, min: 0 },      // Nuevo: contador de vistas
+    agreements: { type: Number, default: 0, min: 0 }, // Nuevo: contador de acuerdos
   },
 }, { timestamps: true, versionKey: false });
 

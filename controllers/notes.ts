@@ -5,6 +5,7 @@ import { CategoryNoteModel } from '../models/note-category';
 import { CategoryNoteProposalModel } from '../models/note-category-proposa';
 import NoteLike from '../models/note-like';
 import NoteComment from '../models/note-comment';
+import NoteAgreement from '../models/note-agreement';
 import { 
   getPublicNotesWithLikesPipeline, 
   getMyNotesWithLikesPipeline,
@@ -380,6 +381,84 @@ export const unlikeNote = async (req: Request, res: Response): Promise<void> => 
     }
   } finally {
     await session.endSession();
+  }
+};
+
+export const agreeNote = async (req: Request, res: Response): Promise<void> => {
+  const session = await startSession();
+  try {
+    const user = req.user as any;
+    const { id } = req.params;
+    if (!Types.ObjectId.isValid(id)) {
+      res.status(400).json({ message: 'Invalid id' });
+      return;
+    }
+    await session.withTransaction(async () => {
+      const note = await Note.findById(id).session(session);
+      if (!note) throw new Error('Note not found');
+      const existing = await NoteAgreement.findOne({ noteId: id, userId: user._id }).session(session);
+      if (existing) throw new Error('Already agreed');
+      await NoteAgreement.create([{ noteId: id, userId: user._id }], { session });
+      await Note.updateOne({ _id: id }, { $inc: { 'publicStats.agreements': 1 } }, { session });
+    });
+    res.json({ message: 'Agreed' });
+  } catch (error: any) {
+    if (error.message === 'Note not found') {
+      res.status(404).json({ message: 'Note not found' });
+    } else if (error.message === 'Already agreed') {
+      res.status(200).json({ message: 'Already agreed' });
+    } else {
+      res.status(500).json({ message: error.message });
+    }
+  } finally {
+    await session.endSession();
+  }
+};
+
+export const unagreeNote = async (req: Request, res: Response): Promise<void> => {
+  const session = await startSession();
+  try {
+    const user = (req as any).user;
+    const { id } = req.params;
+    if (!Types.ObjectId.isValid(id)) {
+      res.status(400).json({ message: 'Invalid id' });
+      return;
+    }
+    let wasRemoved = false;
+    await session.withTransaction(async () => {
+      const note = await Note.findById(id).session(session);
+      if (!note) throw new Error('Note not found');
+      const removed = await NoteAgreement.deleteOne({ noteId: id, userId: user._id }).session(session);
+      wasRemoved = removed.deletedCount > 0;
+      if (wasRemoved) {
+        await Note.updateOne({ _id: id }, { $inc: { 'publicStats.agreements': -1 } }, { session });
+      }
+    });
+    res.json({ message: wasRemoved ? 'Unagreed' : 'Not agreed' });
+  } catch (error: any) {
+    if (error.message === 'Note not found') {
+      res.status(404).json({ message: 'Note not found' });
+    } else {
+      res.status(500).json({ message: error.message });
+    }
+  } finally {
+    await session.endSession();
+  }
+};
+
+export const getAgreements = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    if (!Types.ObjectId.isValid(id)) {
+      res.status(400).json({ message: 'Invalid id' });
+      return;
+    }
+    const agreements = await NoteAgreement.find({ noteId: id })
+      .sort({ createdAt: -1 })
+      .populate('userId', 'name img');
+    res.json(agreements.map((a: any) => a.toJSON()));
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
   }
 };
 

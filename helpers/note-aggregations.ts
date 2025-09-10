@@ -51,6 +51,40 @@ export const getNotesWithLikeStatusPipeline = (currentUserId: string) => [
 ];
 
 /**
+ * Pipeline para marcar si el usuario actual ha dado "acuerdo" y mantener simetría con likes
+ */
+export const withAgreementStatusPipeline = (currentUserId: string) => [
+  {
+    $lookup: {
+      from: 'noteagreements',
+      let: { noteId: '$_id', currentUser: new Types.ObjectId(currentUserId) },
+      pipeline: [
+        {
+          $match: {
+            $expr: {
+              $and: [
+                { $eq: ['$noteId', '$$noteId'] },
+                { $eq: ['$userId', '$$currentUser'] }
+              ]
+            }
+          }
+        },
+        { $limit: 1 }
+      ],
+      as: 'currentUserAgreement'
+    }
+  },
+  {
+    $addFields: {
+      isAgreedByCurrentUser: { $gt: [{ $size: '$currentUserAgreement' }, 0] }
+    }
+  },
+  {
+    $unset: ['currentUserAgreement']
+  }
+];
+
+/**
  * Pipeline para obtener notas públicas con paginación y estado de like
  */
 export const getPublicNotesWithLikesPipeline = (
@@ -63,8 +97,9 @@ export const getPublicNotesWithLikesPipeline = (
     $match: { visibility: 'public' }
   },
   
-  // 2. Agregar información de likes del usuario actual
+  // 2. Agregar información de likes y agreements del usuario actual
   ...getNotesWithLikeStatusPipeline(currentUserId),
+  ...withAgreementStatusPipeline(currentUserId),
   
   // 3. Populate userId (información del creador)
   {
@@ -124,8 +159,9 @@ export const getMyNotesWithLikesPipeline = (currentUserId: string) => [
     $match: { userId: new Types.ObjectId(currentUserId) }
   },
   
-  // 2. Agregar información de likes (aunque sean propias, puede ser útil)
+  // 2. Agregar información de likes y agreements (aunque sean propias)
   ...getNotesWithLikeStatusPipeline(currentUserId),
+  ...withAgreementStatusPipeline(currentUserId),
   
   // 3. Populate categoryId
   {

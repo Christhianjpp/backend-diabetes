@@ -10,6 +10,9 @@ import {
   deleteNote,
   likeNote,
   unlikeNote,
+  agreeNote,
+  unagreeNote,
+  getAgreements,
   addComment,
   getComments,
   deleteComment,
@@ -42,6 +45,11 @@ router.delete('/:id', [validateJWT], deleteNote);
 
 router.post('/:id/like', [validateJWT], likeNote);
 router.delete('/:id/like', [validateJWT], unlikeNote);
+
+// Agreements
+router.post('/:id/agree', [validateJWT], agreeNote);
+router.delete('/:id/agree', [validateJWT], unagreeNote);
+router.get('/:id/agreements', getAgreements);
 
 router.get('/:id/comments', getComments);
 router.post(

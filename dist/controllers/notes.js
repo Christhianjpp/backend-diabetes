@@ -12,13 +12,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteComment = exports.getComments = exports.addComment = exports.unlikeNote = exports.likeNote = exports.deleteNote = exports.updateNote = exports.getNoteById = exports.getPublicNotes = exports.getMyNotes = exports.createNote = void 0;
+exports.deleteComment = exports.getComments = exports.addComment = exports.getAgreements = exports.unagreeNote = exports.agreeNote = exports.unlikeNote = exports.likeNote = exports.deleteNote = exports.updateNote = exports.getNoteById = exports.getPublicNotes = exports.getMyNotes = exports.createNote = void 0;
 const mongoose_1 = require("mongoose");
 const note_1 = __importDefault(require("../models/note"));
 const note_category_1 = require("../models/note-category");
 const note_category_proposa_1 = require("../models/note-category-proposa");
 const note_like_1 = __importDefault(require("../models/note-like"));
 const note_comment_1 = __importDefault(require("../models/note-comment"));
+const note_agreement_1 = __importDefault(require("../models/note-agreement"));
 const note_aggregations_1 = require("../helpers/note-aggregations");
 const note_response_mapper_1 = require("../helpers/note-response-mapper");
 const createNote = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -353,6 +354,95 @@ const unlikeNote = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
     }
 });
 exports.unlikeNote = unlikeNote;
+const agreeNote = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const session = yield (0, mongoose_1.startSession)();
+    try {
+        const user = req.user;
+        const { id } = req.params;
+        if (!mongoose_1.Types.ObjectId.isValid(id)) {
+            res.status(400).json({ message: 'Invalid id' });
+            return;
+        }
+        yield session.withTransaction(() => __awaiter(void 0, void 0, void 0, function* () {
+            const note = yield note_1.default.findById(id).session(session);
+            if (!note)
+                throw new Error('Note not found');
+            const existing = yield note_agreement_1.default.findOne({ noteId: id, userId: user._id }).session(session);
+            if (existing)
+                throw new Error('Already agreed');
+            yield note_agreement_1.default.create([{ noteId: id, userId: user._id }], { session });
+            yield note_1.default.updateOne({ _id: id }, { $inc: { 'publicStats.agreements': 1 } }, { session });
+        }));
+        res.json({ message: 'Agreed' });
+    }
+    catch (error) {
+        if (error.message === 'Note not found') {
+            res.status(404).json({ message: 'Note not found' });
+        }
+        else if (error.message === 'Already agreed') {
+            res.status(200).json({ message: 'Already agreed' });
+        }
+        else {
+            res.status(500).json({ message: error.message });
+        }
+    }
+    finally {
+        yield session.endSession();
+    }
+});
+exports.agreeNote = agreeNote;
+const unagreeNote = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const session = yield (0, mongoose_1.startSession)();
+    try {
+        const user = req.user;
+        const { id } = req.params;
+        if (!mongoose_1.Types.ObjectId.isValid(id)) {
+            res.status(400).json({ message: 'Invalid id' });
+            return;
+        }
+        let wasRemoved = false;
+        yield session.withTransaction(() => __awaiter(void 0, void 0, void 0, function* () {
+            const note = yield note_1.default.findById(id).session(session);
+            if (!note)
+                throw new Error('Note not found');
+            const removed = yield note_agreement_1.default.deleteOne({ noteId: id, userId: user._id }).session(session);
+            wasRemoved = removed.deletedCount > 0;
+            if (wasRemoved) {
+                yield note_1.default.updateOne({ _id: id }, { $inc: { 'publicStats.agreements': -1 } }, { session });
+            }
+        }));
+        res.json({ message: wasRemoved ? 'Unagreed' : 'Not agreed' });
+    }
+    catch (error) {
+        if (error.message === 'Note not found') {
+            res.status(404).json({ message: 'Note not found' });
+        }
+        else {
+            res.status(500).json({ message: error.message });
+        }
+    }
+    finally {
+        yield session.endSession();
+    }
+});
+exports.unagreeNote = unagreeNote;
+const getAgreements = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { id } = req.params;
+        if (!mongoose_1.Types.ObjectId.isValid(id)) {
+            res.status(400).json({ message: 'Invalid id' });
+            return;
+        }
+        const agreements = yield note_agreement_1.default.find({ noteId: id })
+            .sort({ createdAt: -1 })
+            .populate('userId', 'name img');
+        res.json(agreements.map((a) => a.toJSON()));
+    }
+    catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+exports.getAgreements = getAgreements;
 const addComment = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const user = req.user;

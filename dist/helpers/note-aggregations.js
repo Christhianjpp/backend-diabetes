@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.countPublicNotesPipeline = exports.getMyNotesWithLikesPipeline = exports.getPublicNotesWithLikesPipeline = exports.getNotesWithLikeStatusPipeline = void 0;
+exports.countPublicNotesPipeline = exports.getMyNotesWithLikesPipeline = exports.getPublicNotesWithLikesPipeline = exports.withAgreementStatusPipeline = exports.getNotesWithLikeStatusPipeline = void 0;
 const mongoose_1 = require("mongoose");
 /**
  * Pipeline de agregación para obtener notas con estado de like del usuario actual
@@ -50,6 +50,40 @@ const getNotesWithLikeStatusPipeline = (currentUserId) => [
 ];
 exports.getNotesWithLikeStatusPipeline = getNotesWithLikeStatusPipeline;
 /**
+ * Pipeline para marcar si el usuario actual ha dado "acuerdo" y mantener simetría con likes
+ */
+const withAgreementStatusPipeline = (currentUserId) => [
+    {
+        $lookup: {
+            from: 'noteagreements',
+            let: { noteId: '$_id', currentUser: new mongoose_1.Types.ObjectId(currentUserId) },
+            pipeline: [
+                {
+                    $match: {
+                        $expr: {
+                            $and: [
+                                { $eq: ['$noteId', '$$noteId'] },
+                                { $eq: ['$userId', '$$currentUser'] }
+                            ]
+                        }
+                    }
+                },
+                { $limit: 1 }
+            ],
+            as: 'currentUserAgreement'
+        }
+    },
+    {
+        $addFields: {
+            isAgreedByCurrentUser: { $gt: [{ $size: '$currentUserAgreement' }, 0] }
+        }
+    },
+    {
+        $unset: ['currentUserAgreement']
+    }
+];
+exports.withAgreementStatusPipeline = withAgreementStatusPipeline;
+/**
  * Pipeline para obtener notas públicas con paginación y estado de like
  */
 const getPublicNotesWithLikesPipeline = (currentUserId, skip = 0, limit = 10) => [
@@ -57,8 +91,9 @@ const getPublicNotesWithLikesPipeline = (currentUserId, skip = 0, limit = 10) =>
     {
         $match: { visibility: 'public' }
     },
-    // 2. Agregar información de likes del usuario actual
+    // 2. Agregar información de likes y agreements del usuario actual
     ...(0, exports.getNotesWithLikeStatusPipeline)(currentUserId),
+    ...(0, exports.withAgreementStatusPipeline)(currentUserId),
     // 3. Populate userId (información del creador)
     {
         $lookup: {
@@ -111,8 +146,9 @@ const getMyNotesWithLikesPipeline = (currentUserId) => [
     {
         $match: { userId: new mongoose_1.Types.ObjectId(currentUserId) }
     },
-    // 2. Agregar información de likes (aunque sean propias, puede ser útil)
+    // 2. Agregar información de likes y agreements (aunque sean propias)
     ...(0, exports.getNotesWithLikeStatusPipeline)(currentUserId),
+    ...(0, exports.withAgreementStatusPipeline)(currentUserId),
     // 3. Populate categoryId
     {
         $lookup: {

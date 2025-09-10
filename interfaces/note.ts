@@ -17,6 +17,7 @@ export interface PublicStats {
   likes: number;
   comments: number;
   views?: number;  // Nuevo: contador de vistas
+  agreements?: number; // Nuevo: contador de acuerdos
 }
 
 export interface Item {
@@ -38,6 +39,8 @@ export interface Item {
   
   // Campo agregado por consultas con lookup
   isLikedByCurrentUser?: boolean;
+  // Nuevo campo agregado por consultas con lookup
+  isAgreedByCurrentUser?: boolean;
 }
 
 export interface Like { id: string; noteId: string; userId: string; createdAt: number; }

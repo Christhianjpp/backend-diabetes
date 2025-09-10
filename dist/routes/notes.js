@@ -20,6 +20,10 @@ router.put('/:id', [middlewares_1.validateJWT], notes_1.updateNote);
 router.delete('/:id', [middlewares_1.validateJWT], notes_1.deleteNote);
 router.post('/:id/like', [middlewares_1.validateJWT], notes_1.likeNote);
 router.delete('/:id/like', [middlewares_1.validateJWT], notes_1.unlikeNote);
+// Agreements
+router.post('/:id/agree', [middlewares_1.validateJWT], notes_1.agreeNote);
+router.delete('/:id/agree', [middlewares_1.validateJWT], notes_1.unagreeNote);
+router.get('/:id/agreements', notes_1.getAgreements);
 router.get('/:id/comments', notes_1.getComments);
 router.post('/:id/comments', [middlewares_1.validateJWT, (0, express_validator_1.check)('text', 'text is required').not().isEmpty(), middlewares_1.validateFields], notes_1.addComment);
 router.delete('/:id/comments/:commentId', [middlewares_1.validateJWT], notes_1.deleteComment);
