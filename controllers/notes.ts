@@ -480,9 +480,10 @@ export const addComment = async (req: Request, res: Response): Promise<void> => 
       res.status(404).json({ message: 'Note not found' });
       return;
     }
-    const comment = await NoteComment.create({ itemId: id as any, userId: user._id, text });
+    const created = await NoteComment.create({ itemId: id as any, userId: user._id, text });
+    const populated = await NoteComment.findById(created._id).populate('userId', 'name img');
     await Note.updateOne({ _id: id }, { $inc: { 'publicStats.comments': 1 } });
-    res.status(201).json(comment);
+    res.status(201).json(populated?.toJSON());
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
@@ -495,8 +496,12 @@ export const getComments = async (req: Request, res: Response): Promise<void> =>
       res.status(400).json({ message: 'Invalid id' });
       return;
     }
-    const comments = await NoteComment.find({ itemId: id }).sort({ createdAt: -1 });
-    res.json(comments);
+    const comments = await NoteComment.find({ itemId: id })
+      .sort({ createdAt: -1 })
+      .populate('userId', 'name img');
+    
+    console.log('🔍 Comments found:', comments.length);
+    res.json(comments.map((comment: any) => comment.toJSON()));
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }

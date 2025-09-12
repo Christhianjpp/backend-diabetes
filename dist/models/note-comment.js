@@ -19,7 +19,7 @@ const NoteCommentSchema = new mongoose_1.Schema({
 }, { timestamps: { createdAt: true, updatedAt: false }, versionKey: false });
 NoteCommentSchema.methods.toJSON = function () {
     const _a = this.toObject(), { _id, createdAt } = _a, doc = __rest(_a, ["_id", "createdAt"]);
-    return Object.assign(Object.assign({ id: _id }, doc), { createdAt: createdAt ? new Date(createdAt).getTime() : undefined });
+    return Object.assign(Object.assign({ id: _id }, doc), { createdAt: createdAt ? new Date(createdAt).getTime() : Date.now() });
 };
 exports.default = (0, mongoose_1.model)('NoteComment', NoteCommentSchema);
 //# sourceMappingURL=note-comment.js.map

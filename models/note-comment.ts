@@ -18,7 +18,7 @@ NoteCommentSchema.methods.toJSON = function () {
   return {
     id: _id,
     ...doc,
-    createdAt: createdAt ? new Date(createdAt).getTime() : undefined,
+    createdAt: createdAt ? new Date(createdAt).getTime() : Date.now(),
   };
 };
 

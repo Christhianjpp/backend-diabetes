@@ -461,9 +461,10 @@ const addComment = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             res.status(404).json({ message: 'Note not found' });
             return;
         }
-        const comment = yield note_comment_1.default.create({ itemId: id, userId: user._id, text });
+        const created = yield note_comment_1.default.create({ itemId: id, userId: user._id, text });
+        const populated = yield note_comment_1.default.findById(created._id).populate('userId', 'name img');
         yield note_1.default.updateOne({ _id: id }, { $inc: { 'publicStats.comments': 1 } });
-        res.status(201).json(comment);
+        res.status(201).json(populated === null || populated === void 0 ? void 0 : populated.toJSON());
     }
     catch (error) {
         res.status(500).json({ message: error.message });
@@ -477,8 +478,11 @@ const getComments = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             res.status(400).json({ message: 'Invalid id' });
             return;
         }
-        const comments = yield note_comment_1.default.find({ itemId: id }).sort({ createdAt: -1 });
-        res.json(comments);
+        const comments = yield note_comment_1.default.find({ itemId: id })
+            .sort({ createdAt: -1 })
+            .populate('userId', 'name img');
+        console.log('🔍 Comments found:', comments.length);
+        res.json(comments.map((comment) => comment.toJSON()));
     }
     catch (error) {
         res.status(500).json({ message: error.message });
