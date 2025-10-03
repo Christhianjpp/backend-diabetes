@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getBlockedUsersService = exports.unblockUserService = exports.blockUserService = exports.isUserBlocked = exports.getBlockedUserIds = void 0;
+exports.getBlockedUsersService = exports.unblockUserService = exports.blockUserService = exports.isUserBlocked = exports.getUsersWhoBlockedMeIds = exports.getBlockedUserIds = void 0;
 const user_1 = __importDefault(require("../models/user"));
 const blocked_user_1 = __importDefault(require("../models/blocked-user"));
 const note_like_1 = __importDefault(require("../models/note-like"));
@@ -33,6 +33,22 @@ const getBlockedUserIds = (userId) => __awaiter(void 0, void 0, void 0, function
     }
 });
 exports.getBlockedUserIds = getBlockedUserIds;
+/**
+ * Obtener lista de IDs de usuarios que han bloqueado al usuario indicado
+ */
+const getUsersWhoBlockedMeIds = (userId) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const blocks = yield blocked_user_1.default.find({ blockedUserId: userId }).select('blockerId');
+        const blockerIds = blocks.map(block => block.blockerId);
+        console.log(`🔍 Usuarios que han bloqueado a ${userId}:`, blockerIds);
+        return blockerIds;
+    }
+    catch (error) {
+        console.error('Error obteniendo usuarios que me bloquearon:', error);
+        return [];
+    }
+});
+exports.getUsersWhoBlockedMeIds = getUsersWhoBlockedMeIds;
 /**
  * Verificar si un usuario está bloqueado
  */
@@ -113,7 +129,9 @@ const updateUserBlockInfo = (blockerId, blockedUserId, blockerName) => __awaiter
                     read: false,
                 }
             }
-        })
+        }),
+        // Registrar quién lo bloqueó en el perfil del usuario bloqueado
+        user_1.default.findByIdAndUpdate(blockedUserId, { $addToSet: { blockedBy: blockerId } })
     ]);
 });
 /**
@@ -170,7 +188,11 @@ const unblockUserService = (blockerId, blockedUserId) => __awaiter(void 0, void 
             throw new Error("Este usuario no está bloqueado");
         }
         // Decrementar contador de violaciones
-        yield user_1.default.findByIdAndUpdate(blockedUserId, { $inc: { violations: -1 } });
+        yield Promise.all([
+            user_1.default.findByIdAndUpdate(blockedUserId, { $inc: { violations: -1 } }),
+            // Quitar registro de quién lo bloqueó
+            user_1.default.findByIdAndUpdate(blockedUserId, { $pull: { blockedBy: blockerId } })
+        ]);
         console.log(`✅ Usuario ${blockedUserId} desbloqueado por ${blockerId}`);
         return {
             success: true

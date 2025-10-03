@@ -36,6 +36,21 @@ export const getBlockedUserIds = async (userId: string): Promise<string[]> => {
 };
 
 /**
+ * Obtener lista de IDs de usuarios que han bloqueado al usuario indicado
+ */
+export const getUsersWhoBlockedMeIds = async (userId: string): Promise<string[]> => {
+  try {
+    const blocks = await BlockedUser.find({ blockedUserId: userId }).select('blockerId');
+    const blockerIds = blocks.map(block => block.blockerId);
+    console.log(`🔍 Usuarios que han bloqueado a ${userId}:`, blockerIds);
+    return blockerIds;
+  } catch (error) {
+    console.error('Error obteniendo usuarios que me bloquearon:', error);
+    return [];
+  }
+};
+
+/**
  * Verificar si un usuario está bloqueado
  */
 export const isUserBlocked = async (blockerId: string, blockedUserId: string): Promise<boolean> => {
@@ -133,6 +148,11 @@ const updateUserBlockInfo = async (
           }
         }
       }
+    ),
+    // Registrar quién lo bloqueó en el perfil del usuario bloqueado
+    User.findByIdAndUpdate(
+      blockedUserId,
+      { $addToSet: { blockedBy: blockerId as any } }
     )
   ]);
 };
@@ -200,10 +220,17 @@ export const unblockUserService = async (blockerId: string, blockedUserId: strin
     }
 
     // Decrementar contador de violaciones
-    await User.findByIdAndUpdate(
-      blockedUserId,
-      { $inc: { violations: -1 } }
-    );
+    await Promise.all([
+      User.findByIdAndUpdate(
+        blockedUserId,
+        { $inc: { violations: -1 } }
+      ),
+      // Quitar registro de quién lo bloqueó
+      User.findByIdAndUpdate(
+        blockedUserId,
+        { $pull: { blockedBy: blockerId as any } }
+      )
+    ]);
 
     console.log(`✅ Usuario ${blockedUserId} desbloqueado por ${blockerId}`);
 

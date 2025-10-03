@@ -51,7 +51,7 @@ router.post('/:id/agree', [validateJWT], agreeNote);
 router.delete('/:id/agree', [validateJWT], unagreeNote);
 router.get('/:id/agreements', getAgreements);
 
-router.get('/:id/comments', getComments);
+router.get('/:id/comments', [validateJWT], getComments);
 router.post(
   '/:id/comments',
   [validateJWT, check('text', 'text is required').not().isEmpty(), validateFields],

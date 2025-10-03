@@ -111,12 +111,16 @@ const getPublicNotes = (req, res) => __awaiter(void 0, void 0, void 0, function*
             res.status(401).json({ message: 'User not authenticated' });
             return;
         }
-        // Obtener usuarios bloqueados por el usuario actual
-        const blockedUserIds = yield (0, userBlocking_1.getBlockedUserIds)(user._id.toString());
-        console.log('🚫 Blocked user IDs:', blockedUserIds);
+        // Obtener usuarios bloqueados por mí y usuarios que me bloquearon
+        const [blockedByMe, blockedMe] = yield Promise.all([
+            (0, userBlocking_1.getBlockedUserIds)(user._id.toString()),
+            (0, userBlocking_1.getUsersWhoBlockedMeIds)(user._id.toString()),
+        ]);
+        const blockedUserIds = Array.from(new Set([...(blockedByMe || []), ...(blockedMe || [])]));
+        console.log('🚫 Blocked (both directions) user IDs:', blockedUserIds);
         // Crear pipeline de agregación con filtro de usuarios bloqueados
         const publicNotesPipeline = (0, note_aggregations_1.getPublicNotesWithLikesPipeline)(user._id.toString(), Number(desde), Number(limit));
-        // Agregar filtro para excluir notas de usuarios bloqueados
+        // Agregar filtro para excluir notas de usuarios con bloqueo en cualquier dirección
         if (blockedUserIds.length > 0) {
             publicNotesPipeline.unshift({
                 $match: {
@@ -125,7 +129,7 @@ const getPublicNotes = (req, res) => __awaiter(void 0, void 0, void 0, function*
             });
         }
         const countPipeline = (0, note_aggregations_1.countPublicNotesPipeline)();
-        // Agregar filtro de conteo para excluir usuarios bloqueados
+        // Agregar filtro de conteo para excluir usuarios con bloqueo en cualquier dirección
         if (blockedUserIds.length > 0) {
             countPipeline.unshift({
                 $match: {
@@ -164,11 +168,14 @@ const getNoteById = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             res.status(404).json({ message: 'Note not found' });
             return;
         }
-        // Verificar si el autor de la nota está bloqueado por el usuario actual
+        // Verificar bloqueo en cualquier dirección entre el lector y el autor de la nota
         if (user && user._id) {
-            const blockedUserIds = yield (0, userBlocking_1.getBlockedUserIds)(user._id.toString());
             const noteAuthorId = String(note.userId);
-            if (blockedUserIds.includes(noteAuthorId)) {
+            const [blockedByReader, blockedByAuthor] = yield Promise.all([
+                (0, userBlocking_1.isUserBlocked)(user._id.toString(), noteAuthorId),
+                (0, userBlocking_1.isUserBlocked)(noteAuthorId, user._id.toString()),
+            ]);
+            if (blockedByReader || blockedByAuthor) {
                 res.status(403).json({ message: 'Note from blocked user' });
                 return;
             }
@@ -493,6 +500,17 @@ const addComment = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             res.status(404).json({ message: 'Note not found' });
             return;
         }
+        // Bloquear comentarios si existe un bloqueo entre el autor de la nota y el usuario que comenta
+        const noteOwnerId = String(note.userId);
+        const commenterId = user._id.toString();
+        const [blockedByCommenter, blockedByOwner] = yield Promise.all([
+            (0, userBlocking_1.isUserBlocked)(commenterId, noteOwnerId),
+            (0, userBlocking_1.isUserBlocked)(noteOwnerId, commenterId),
+        ]);
+        if (blockedByCommenter || blockedByOwner) {
+            res.status(403).json({ message: 'User blocked' });
+            return;
+        }
         const created = yield note_comment_1.default.create({ itemId: id, userId: user._id, text });
         const populated = yield note_comment_1.default.findById(created._id).populate('userId', 'name img');
         yield note_1.default.updateOne({ _id: id }, { $inc: { 'publicStats.comments': 1 } });
@@ -511,21 +529,26 @@ const getComments = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             res.status(400).json({ message: 'Invalid id' });
             return;
         }
-        // Obtener usuarios bloqueados por el usuario actual
-        let blockedUserIds = [];
+        // Obtener usuarios bloqueados por el usuario actual y usuarios que te bloquearon
+        let blockedByMe = [];
+        let blockedMe = [];
         if (user && user._id) {
-            blockedUserIds = yield (0, userBlocking_1.getBlockedUserIds)(user._id.toString());
+            [blockedByMe, blockedMe] = yield Promise.all([
+                (0, userBlocking_1.getBlockedUserIds)(user._id.toString()),
+                (0, userBlocking_1.getUsersWhoBlockedMeIds)(user._id.toString()),
+            ]);
         }
         // Crear query base para comentarios
         let commentQuery = { itemId: id };
-        // Agregar filtro para excluir comentarios de usuarios bloqueados
-        if (blockedUserIds.length > 0) {
-            commentQuery.userId = { $nin: blockedUserIds.map(id => new mongoose_1.Types.ObjectId(id)) };
+        // Agregar filtro para excluir comentarios de usuarios con bloqueo en cualquier dirección
+        const excludeIds = Array.from(new Set([...(blockedByMe || []), ...(blockedMe || [])]));
+        if (excludeIds.length > 0) {
+            commentQuery.userId = { $nin: excludeIds.map(id => new mongoose_1.Types.ObjectId(id)) };
         }
         const comments = yield note_comment_1.default.find(commentQuery)
             .sort({ createdAt: -1 })
             .populate('userId', 'name img');
-        console.log('🔍 Comments found:', comments.length, 'Blocked users filtered:', blockedUserIds.length);
+        console.log('🔍 Comments found:', comments.length, 'Excluded due to blocks:', (blockedByMe.length + blockedMe.length));
         res.json(comments.map((comment) => comment.toJSON()));
     }
     catch (error) {
