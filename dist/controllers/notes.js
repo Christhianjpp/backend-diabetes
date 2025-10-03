@@ -22,6 +22,7 @@ const note_comment_1 = __importDefault(require("../models/note-comment"));
 const note_agreement_1 = __importDefault(require("../models/note-agreement"));
 const note_aggregations_1 = require("../helpers/note-aggregations");
 const note_response_mapper_1 = require("../helpers/note-response-mapper");
+const userBlocking_1 = require("../services/userBlocking");
 const createNote = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const user = req.user;
@@ -110,15 +111,37 @@ const getPublicNotes = (req, res) => __awaiter(void 0, void 0, void 0, function*
             res.status(401).json({ message: 'User not authenticated' });
             return;
         }
+        // Obtener usuarios bloqueados por el usuario actual
+        const blockedUserIds = yield (0, userBlocking_1.getBlockedUserIds)(user._id.toString());
+        console.log('🚫 Blocked user IDs:', blockedUserIds);
+        // Crear pipeline de agregación con filtro de usuarios bloqueados
+        const publicNotesPipeline = (0, note_aggregations_1.getPublicNotesWithLikesPipeline)(user._id.toString(), Number(desde), Number(limit));
+        // Agregar filtro para excluir notas de usuarios bloqueados
+        if (blockedUserIds.length > 0) {
+            publicNotesPipeline.unshift({
+                $match: {
+                    userId: { $nin: blockedUserIds.map(id => new mongoose_1.Types.ObjectId(id)) }
+                }
+            });
+        }
+        const countPipeline = (0, note_aggregations_1.countPublicNotesPipeline)();
+        // Agregar filtro de conteo para excluir usuarios bloqueados
+        if (blockedUserIds.length > 0) {
+            countPipeline.unshift({
+                $match: {
+                    userId: { $nin: blockedUserIds.map(id => new mongoose_1.Types.ObjectId(id)) }
+                }
+            });
+        }
         // Usar agregación para obtener notas con estado de like del usuario actual
         const [totalResult, notes] = yield Promise.all([
-            note_1.default.aggregate((0, note_aggregations_1.countPublicNotesPipeline)()),
-            note_1.default.aggregate((0, note_aggregations_1.getPublicNotesWithLikesPipeline)(user._id.toString(), Number(desde), Number(limit)))
+            note_1.default.aggregate(countPipeline),
+            note_1.default.aggregate(publicNotesPipeline)
         ]);
         const total = ((_a = totalResult[0]) === null || _a === void 0 ? void 0 : _a.total) || 0;
         // Mapear resultados de agregación al formato de respuesta
         const mappedNotes = (0, note_response_mapper_1.mapAggregationResultsToResponse)(notes);
-        console.log('📤 Sending response with notes count:', mappedNotes.length);
+        console.log('📤 Sending response with notes count:', mappedNotes.length, 'Total available:', total);
         res.status(200).json({ total, notes: mappedNotes });
     }
     catch (error) {
@@ -140,6 +163,15 @@ const getNoteById = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         if (!note) {
             res.status(404).json({ message: 'Note not found' });
             return;
+        }
+        // Verificar si el autor de la nota está bloqueado por el usuario actual
+        if (user && user._id) {
+            const blockedUserIds = yield (0, userBlocking_1.getBlockedUserIds)(user._id.toString());
+            const noteAuthorId = String(note.userId);
+            if (blockedUserIds.includes(noteAuthorId)) {
+                res.status(403).json({ message: 'Note from blocked user' });
+                return;
+            }
         }
         const isOwner = user && String(note.userId) === String(user._id);
         if (!isOwner && note.visibility !== 'public') {
@@ -474,14 +506,26 @@ exports.addComment = addComment;
 const getComments = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id } = req.params;
+        const user = req.user;
         if (!mongoose_1.Types.ObjectId.isValid(id)) {
             res.status(400).json({ message: 'Invalid id' });
             return;
         }
-        const comments = yield note_comment_1.default.find({ itemId: id })
+        // Obtener usuarios bloqueados por el usuario actual
+        let blockedUserIds = [];
+        if (user && user._id) {
+            blockedUserIds = yield (0, userBlocking_1.getBlockedUserIds)(user._id.toString());
+        }
+        // Crear query base para comentarios
+        let commentQuery = { itemId: id };
+        // Agregar filtro para excluir comentarios de usuarios bloqueados
+        if (blockedUserIds.length > 0) {
+            commentQuery.userId = { $nin: blockedUserIds.map(id => new mongoose_1.Types.ObjectId(id)) };
+        }
+        const comments = yield note_comment_1.default.find(commentQuery)
             .sort({ createdAt: -1 })
             .populate('userId', 'name img');
-        console.log('🔍 Comments found:', comments.length);
+        console.log('🔍 Comments found:', comments.length, 'Blocked users filtered:', blockedUserIds.length);
         res.json(comments.map((comment) => comment.toJSON()));
     }
     catch (error) {

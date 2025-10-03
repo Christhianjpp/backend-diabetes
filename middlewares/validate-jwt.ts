@@ -13,6 +13,7 @@ interface IDecode {
  * Middleware para validar JWT y adjuntar el usuario a la solicitud
  */
 const validateJWT = async (req: Request, res: Response, next: NextFunction) => {
+  console.log("validateJWT");
   try {
     // Obtener el header de autorización
     const authHeader = req.header("Authorization");
@@ -47,7 +48,8 @@ const validateJWT = async (req: Request, res: Response, next: NextFunction) => {
 
     // Decodificar el token
     const { uid } = jwt.verify(token, secretKey) as IDecode;
-
+    console.log("token");
+    console.log("uid from token:", uid);
     // Buscar el usuario en la base de datos
     const user = await User.findById(uid);
 
@@ -69,6 +71,7 @@ const validateJWT = async (req: Request, res: Response, next: NextFunction) => {
 
     // Adjuntar el usuario a la solicitud para usarlo en los controladores
     req.user = user;
+    req.user.uid  = user.id;    // string normalizado de Mongoose
 
     // Continuar con el siguiente middleware o controlador
     next();

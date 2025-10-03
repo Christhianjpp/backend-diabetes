@@ -18,6 +18,7 @@ const user_1 = __importDefault(require("../models/user"));
  * Middleware para validar JWT y adjuntar el usuario a la solicitud
  */
 const validateJWT = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    console.log("validateJWT");
     try {
         // Obtener el header de autorización
         const authHeader = req.header("Authorization");
@@ -47,6 +48,8 @@ const validateJWT = (req, res, next) => __awaiter(void 0, void 0, void 0, functi
         }
         // Decodificar el token
         const { uid } = jsonwebtoken_1.default.verify(token, secretKey);
+        console.log("token");
+        console.log("uid from token:", uid);
         // Buscar el usuario en la base de datos
         const user = yield user_1.default.findById(uid);
         // Verificar si el usuario existe
@@ -65,6 +68,7 @@ const validateJWT = (req, res, next) => __awaiter(void 0, void 0, void 0, functi
         }
         // Adjuntar el usuario a la solicitud para usarlo en los controladores
         req.user = user;
+        req.user.uid = user.id; // string normalizado de Mongoose
         // Continuar con el siguiente middleware o controlador
         next();
     }

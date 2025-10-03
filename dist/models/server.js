@@ -22,6 +22,7 @@ const uploads_1 = __importDefault(require("../routes/uploads"));
 const notification_push_1 = __importDefault(require("../routes/notification-push"));
 const notes_1 = __importDefault(require("../routes/notes"));
 const categories_1 = __importDefault(require("../routes/categories"));
+const user_moderation_1 = __importDefault(require("../routes/user-moderation"));
 const debug_1 = __importDefault(require("../routes/debug"));
 class Server {
     constructor() {
@@ -30,6 +31,7 @@ class Server {
             auth: "/api/auth",
             uploads: "/api/uploads",
             notifications: "/api/notification-push",
+            userModeration: "/api/user-moderation",
         };
         this.app = (0, express_1.default)();
         this.port = process.env.PORT || "8080";
@@ -57,6 +59,7 @@ class Server {
         this.app.use(this.apiPaths.auth, auth_1.default);
         this.app.use(this.apiPaths.uploads, uploads_1.default);
         this.app.use(this.apiPaths.notifications, notification_push_1.default);
+        this.app.use(this.apiPaths.userModeration, user_moderation_1.default);
         this.app.use('/api/notes', notes_1.default);
         this.app.use('/api/categories', categories_1.default);
         this.app.use('/api/debug', debug_1.default); // Rutas de debug temporales

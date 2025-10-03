@@ -8,6 +8,7 @@ import userUploads from "../routes/uploads";
 import notificationPush from "../routes/notification-push";
 import notesRouter from "../routes/notes";
 import categoriesRouter from "../routes/categories";
+import userModerationRouter from "../routes/user-moderation";
 import debugRouter from "../routes/debug";
 
 class Server {
@@ -18,6 +19,7 @@ class Server {
     auth: "/api/auth",
     uploads: "/api/uploads",
     notifications: "/api/notification-push",
+    userModeration: "/api/user-moderation",
   };
 
   constructor() {
@@ -50,6 +52,7 @@ class Server {
     this.app.use(this.apiPaths.auth, userAuth);
     this.app.use(this.apiPaths.uploads, userUploads);
     this.app.use(this.apiPaths.notifications, notificationPush);
+    this.app.use(this.apiPaths.userModeration, userModerationRouter);
     this.app.use('/api/notes', notesRouter);
     this.app.use('/api/categories', categoriesRouter);
     this.app.use('/api/debug', debugRouter);  // Rutas de debug temporales
