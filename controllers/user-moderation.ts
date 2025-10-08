@@ -27,6 +27,20 @@ export const reportUser = async (req: Request, res: Response) => {
       return handleError(res, "El usuario reportado no existe", { statusCode: HttpStatusCode.NOT_FOUND });
     }
 
+    // Verificar si ya existe un reporte del mismo contenido por el mismo usuario
+    const existingQuery: any = { reporterId, reportedUserId };
+    if (commentId) existingQuery.commentId = commentId;
+    if (noteId) existingQuery.noteId = noteId;
+
+    const existingReport = await UserReport.findOne(existingQuery);
+    if (existingReport) {
+      return res.status(200).json({
+        success: true,
+        message: "Ya reportaste este contenido",
+        report: existingReport,
+      });
+    }
+
     // Crear el reporte
     const report = new UserReport({
       reporterId,
@@ -47,6 +61,10 @@ export const reportUser = async (req: Request, res: Response) => {
       report,
     });
   } catch (error: any) {
+    // Manejar error de duplicado por índice único como respaldo
+    if (error?.code === 11000) {
+      return handleError(res, "Ya reportaste este contenido", { statusCode: HttpStatusCode.BAD_REQUEST, logError: false });
+    }
     handleError(res, "ERROR_CREATE_REPORT", error);
   }
 };
